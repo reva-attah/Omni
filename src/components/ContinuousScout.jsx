@@ -3,7 +3,6 @@ import React, { useEffect, useState, useMemo } from "react";
 import { useAction, useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { normalizeSector, CANONICAL_SECTORS } from "./Dashboard";
-import { ASSESSMENT_GUIDE_CRITERIA } from "./GlobalBenchmark";
 
 export function ContinuousScout({ onNavigate }) {
   const [now, setNow] = useState(() => Date.now());

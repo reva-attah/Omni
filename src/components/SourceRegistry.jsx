@@ -18,6 +18,11 @@ function normalizeSourceCategory(value = "", tier = "") {
   return "Emerging Market";
 }
 
+function getSourceCategoryLabel(value = "", tier = "") {
+  const category = normalizeSourceCategory(value, tier);
+  return category === "Global Fallback" ? "Global" : category;
+}
+
 function getSourceIndustry(source) {
   if (source.industry?.trim()) return source.industry.trim();
   const legacyCategory = source.category?.trim() || "";
@@ -241,7 +246,7 @@ export function SourceRegistry() {
             Curated Source Catalog & Approval
           </h1>
           <p className="mt-0.5 text-xs text-secondary max-w-3xl leading-relaxed">
-            Sources use Emerging Market, Nigerian Regulatory, Legal and Policy Environment, or Global Fallback. Import via Excel/CSV or register manually.
+            Sources use Emerging Market, Nigerian Regulatory, Legal and Policy Environment, or Global. Import via Excel/CSV or register manually.
           </p>
         </div>
 
@@ -359,7 +364,16 @@ export function SourceRegistry() {
       {/* Sources Table (12 per batch - Requirement 8) */}
       <section className="rounded-xl bg-white/80 p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-amber-900/10">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left min-w-[750px]">
+          <table className="w-full table-fixed text-xs text-left min-w-[1135px]">
+            <colgroup>
+              <col className="w-[270px]" />
+              <col className="w-[190px]" />
+              <col className="w-[190px]" />
+              <col className="w-[105px]" />
+              <col className="w-[110px]" />
+              <col className="w-[120px]" />
+              <col className="w-[150px]" />
+            </colgroup>
             <thead className="bg-surface-low text-secondary text-[10px] uppercase font-bold tracking-wider">
               <tr>
                 <th className="p-2.5">Source Publication & URL</th>
@@ -377,20 +391,21 @@ export function SourceRegistry() {
                   const isFullyActive = src.isActive;
                   return (
                     <tr key={src._id} className="hover:bg-surface-low/40">
-                      <td className="p-2.5 max-w-xs">
-                        <div className="font-bold text-on-surface text-sm">{src.name}</div>
+                      <td className="p-2.5 overflow-hidden">
+                        <div className="font-bold text-on-surface text-sm break-words">{src.name}</div>
                         <a
                           href={src.url}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-[11px] text-primary hover:underline inline-flex items-center gap-1 font-mono mt-0.5 truncate max-w-sm"
+                          title={src.url}
+                          className="mt-0.5 grid min-w-0 max-w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-1 overflow-hidden text-[11px] font-mono text-primary hover:underline"
                         >
-                          <span>{src.url}</span>
+                          <span className="block min-w-0 truncate">{src.url}</span>
                           <span className="material-symbols-outlined text-[12px]">open_in_new</span>
                         </a>
                       </td>
 
-                      <td className="p-2.5">
+                      <td className="p-2.5 overflow-hidden">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
                           src.category.includes("Regulatory")
                             ? "bg-amber-500/10 text-amber-800"
@@ -398,14 +413,14 @@ export function SourceRegistry() {
                             ? "bg-purple-500/10 text-purple-800"
                             : "bg-blue-500/10 text-blue-800"
                         }`}>
-                          {normalizeSourceCategory(src.category, src.tier)}
+                          {getSourceCategoryLabel(src.category, src.tier)}
                         </span>
-                        <div className="text-[10px] text-secondary mt-0.5">{src.region || "Global"}</div>
+                        <div className="mt-0.5 break-words text-[10px] text-secondary">{src.region || "Global"}</div>
                       </td>
 
-                      <td className="p-2.5">
-                        <span className="font-medium text-on-surface">{src.sector ? normalizeSector(src.sector) : "Not specified"}</span>
-                        {getSourceIndustry(src) && <div className="text-[11px] text-secondary">{getSourceIndustry(src)}</div>}
+                      <td className="p-2.5 overflow-hidden">
+                        <span className="break-words font-medium text-on-surface">{src.sector ? normalizeSector(src.sector) : "Not specified"}</span>
+                        {getSourceIndustry(src) && <div className="break-words text-[11px] text-secondary">{getSourceIndustry(src)}</div>}
                       </td>
                       <td className="p-2.5 text-secondary">{src.dateAdded || src._creationTime ? new Date(src.dateAdded || src._creationTime).toLocaleDateString() : "Unknown"}</td>
 
@@ -546,7 +561,7 @@ export function SourceRegistry() {
                 >
                   <option value="Emerging Market">Emerging Market</option>
                   <option value="Nigerian Regulatory, Legal and Policy Environment">Nigerian Regulatory, Legal and Policy Environment</option>
-                  <option value="Global Fallback">Global Fallback</option>
+                  <option value="Global Fallback">Global</option>
                 </select>
               </div>
 

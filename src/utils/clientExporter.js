@@ -34,26 +34,6 @@ export async function exportToPowerPoint(report) {
   titleSlide.addText(report.description || "No concept description supplied.", { x: 0.68, y: 2.8, w: 11.5, h: 1.2, fontSize: 18, color: color.ink, breakLine: false, valign: "top", fit: "shrink" });
   titleSlide.addText(`Prepared ${new Date(report.createdAt || Date.now()).toLocaleDateString()}`, { x: 0.68, y: 6.7, w: 6, h: 0.3, fontSize: 10, color: color.muted });
 
-  if (report.scoringCriteria) {
-    const slide = pptx.addSlide();
-    slide.background = { color: "FFFFFF" };
-    slide.addText("TRIUM / CORONATION GROUP", { x: 0.55, y: 0.35, w: 5, h: 0.25, fontSize: 10, bold: true, charSpacing: 1.3, color: color.accent });
-    slide.addText("Assessment guide", { x: 0.55, y: 0.7, w: 12, h: 0.5, fontSize: 23, bold: true, color: color.ink });
-    const criteriaRows = [["Criterion", "Score", "Evidence-based assessment"]];
-    for (const [name, value] of Object.entries(report.scoringCriteria)) {
-      if (!value || typeof value !== "object" || !("score" in value)) continue;
-      const criterion = value;
-      criteriaRows.push([name.replace(/([A-Z])/g, " $1"), `${criterion.score}/${criterion.max}`, criterion.rationale || "No rationale returned."]);
-    }
-    slide.addTable(criteriaRows, {
-      x: 0.55, y: 1.45, w: 12.2, h: 5.3,
-      border: { type: "solid", color: "DED8CE", pt: 0.6 },
-      fill: "FFFFFF", color: color.ink, fontFace: "Aptos", fontSize: 11,
-      rowH: 0.65, colW: [2.3, 1.2, 8.7], margin: 0.12, valign: "mid", autoFit: false,
-    });
-    slide.addText(`Composite score ${report.scoringCriteria.totalScore ?? "—"}/100 · Grade ${report.scoringCriteria.grade || "Not scored"}`, { x: 0.55, y: 6.85, w: 12, h: 0.25, fontSize: 10, color: color.muted });
-  }
-
   const peers = report.benchmarks || [];
   for (let offset = 0; offset < peers.length; offset += 4) {
     const slide = pptx.addSlide();
@@ -67,9 +47,11 @@ export async function exportToPowerPoint(report) {
         `${peer.country || "Not verified"} / ${peer.regionTier || "Not classified"}`,
         peer.businessModel || "Not verified",
         [
-          `Scale: ${peer.operationalScale || "Not publicly reported"}`,
+          `Scale: ${(peer.scaleMetrics || []).map((metric) => `${metric.metric}: ${metric.value}${metric.asOf ? ` (${metric.asOf})` : ""}`).join("; ") || peer.operationalScale || "Not publicly reported"}`,
           `Customers/revenue: ${peer.customersAndRevenues || "Not publicly reported"}`,
-          `ROI/viability: ${peer.roiAndViability || "Not publicly reported"}`,
+          `Execution: ${peer.executionModel || "Not reported"}`,
+          `What worked: ${peer.whatWorked || "Not reported"}`,
+          `Challenges: ${peer.challenges || "Not reported"}`,
           `Partners: ${peer.keyPartners || "Not publicly reported"}`,
           `Lesson: ${peer.lessonsLearned || "Not stated"}`,
         ].join("\n"),
@@ -104,30 +86,18 @@ export async function exportToPowerPoint(report) {
     });
   }
 
-  const guidance = report.blueprint || {};
-  for (const [heading, items, field, supporting] of [
-    ["Apply in Nigeria", guidance.whatToApply || [], "recommendation", "parallelBenchmark"],
-    ["Avoid in Nigeria", guidance.whatToAvoid || [], "warning", "pitfallReason"],
-  ]) {
+  const synthesisSlides = [
+    ["Executive summary", report.executiveSummary],
+    ["Market context", report.marketContext],
+    ["Cross-market execution patterns", (report.executionInsights || []).map((item) => "• " + item).join("\n")],
+    ["Market comparisons and lessons", (report.marketLessons || []).map((item) => "• " + item).join("\n")],
+  ].filter(([, text]) => text);
+  for (const [heading, text] of synthesisSlides) {
     const slide = pptx.addSlide();
-    slide.background = { color: color.paper };
-    slide.addText("LOCALIZATION BLUEPRINT", { x: 0.6, y: 0.4, w: 5, h: 0.25, fontSize: 10, bold: true, charSpacing: 1.4, color: color.accent });
-    slide.addText(heading, { x: 0.6, y: 0.82, w: 12, h: 0.55, fontSize: 25, bold: true, color: color.ink });
-    items.slice(0, 5).forEach((item, index) => {
-      const y = 1.7 + index * 0.92;
-      slide.addText(`${index + 1}. ${item.title || "Recommendation"}`, { x: 0.7, y, w: 11.8, h: 0.3, fontSize: 15, bold: true, color: color.accent });
-      slide.addText([item[field], item[supporting]].filter(Boolean).join(" — "), { x: 0.98, y: y + 0.32, w: 11.3, h: 0.45, fontSize: 12, color: color.ink, fit: "shrink" });
-    });
-  }
-  const verdict = pptx.addSlide();
-  verdict.background = { color: "FFFFFF" };
-  verdict.addText("SYNTHESIS", { x: 0.6, y: 0.45, w: 5, h: 0.25, fontSize: 10, bold: true, charSpacing: 1.4, color: color.accent });
-  verdict.addText("What the evidence suggests", { x: 0.6, y: 0.9, w: 12, h: 0.55, fontSize: 25, bold: true, color: color.ink });
-  verdict.addText(guidance.triumStrategicVerdict || "No synthesis was returned.", { x: 0.7, y: 1.8, w: 11.5, h: 1.4, fontSize: 18, color: color.ink, valign: "top", fit: "shrink" });
-  const patterns = guidance.recurringPatterns || [];
-  if (patterns.length) {
-    verdict.addText("Recurring patterns", { x: 0.7, y: 3.7, w: 6, h: 0.3, fontSize: 15, bold: true, color: color.accent });
-    verdict.addText(patterns.map((pattern) => `• ${pattern}`).join("\n"), { x: 0.85, y: 4.1, w: 11.3, h: 1.6, fontSize: 14, color: color.ink, breakLine: false, fit: "shrink" });
+    slide.background = { color: "FFFFFF" };
+    slide.addText("COMPARATIVE MARKET REPORT", { x: 0.6, y: 0.4, w: 7, h: 0.25, fontSize: 10, bold: true, charSpacing: 1.4, color: color.accent });
+    slide.addText(heading, { x: 0.6, y: 0.9, w: 12, h: 0.55, fontSize: 25, bold: true, color: color.ink });
+    slide.addText(text, { x: 0.7, y: 1.8, w: 11.5, h: 4.8, fontSize: 16, color: color.ink, valign: "top", fit: "shrink" });
   }
   const safeName = (report.ideaName || "Venture-Benchmark").replace(/[^\w-]+/g, "-");
   await pptx.writeFile({ fileName: `Trium-Benchmark-${safeName}.pptx` });
@@ -167,9 +137,8 @@ export async function exportToWord(report) {
               spacing: { after: 300 }
             }),
 
-            // Concept Brief
             new Paragraph({
-              text: "1. Venture Concept & Core Thesis",
+              text: "Initiative brief",
               heading: HeadingLevel.HEADING_1,
               spacing: { before: 200, after: 100 }
             }),
@@ -195,80 +164,14 @@ export async function exportToWord(report) {
               spacing: { after: 250 }
             }),
 
-            ...(report.scoringCriteria ? [
-              new Paragraph({ text: "Trium 7-Criteria Assessment", heading: HeadingLevel.HEADING_1, spacing: { before: 200, after: 100 } }),
-              new Paragraph({ text: `Composite score: ${report.scoringCriteria.totalScore ?? "Not scored"}/100 · Grade ${report.scoringCriteria.grade || "Not graded"}`, spacing: { after: 120 } }),
-              ...Object.entries(report.scoringCriteria)
-                .filter(([, value]) => value && typeof value === "object" && "score" in value)
-                .map(([name, value]) => new Paragraph({
-                  children: [
-                    new TextRun({ text: `${name.replace(/([A-Z])/g, " $1")}: ${value.score}/${value.max} — `, bold: true }),
-                    new TextRun(value.rationale || "No rationale returned."),
-                  ],
-                  spacing: { after: 80 },
-                })),
-            ] : []),
+            new Paragraph({ text: "Comparative Market Research", heading: HeadingLevel.HEADING_1, spacing: { before: 200, after: 100 } }),
+            ...(report.executiveSummary ? [new Paragraph({ children: [new TextRun({ text: "Executive summary: ", bold: true }), new TextRun(report.executiveSummary)], spacing: { after: 120 } })] : []),
+            ...(report.marketContext ? [new Paragraph({ children: [new TextRun({ text: "Market context: ", bold: true }), new TextRun(report.marketContext)], spacing: { after: 160 } })] : []),
+            ...(report.executionInsights || []).map((item) => new Paragraph({ text: "Execution pattern: " + item, bullet: { indent: 360 }, spacing: { after: 80 } })),
+            ...(report.marketLessons || []).map((item) => new Paragraph({ text: "Market lesson: " + item, bullet: { indent: 360 }, spacing: { after: 80 } })),
 
-            // Localization Blueprint
             new Paragraph({
-              text: "2. Strategic Execution Blueprint: Nigeria In-Depth",
-              heading: HeadingLevel.HEADING_1,
-              spacing: { before: 200, after: 100 }
-            }),
-
-            // What to Apply
-            new Paragraph({
-              text: "WHAT TO APPLY IN NIGERIA (Tactical Playbook Directives):",
-              heading: HeadingLevel.HEADING_2,
-              spacing: { before: 150, after: 100 }
-            }),
-            ...(report.blueprint?.whatToApply?.map((item, i) =>
-              new Paragraph({
-                children: [
-                  new TextRun({ text: `${i + 1}. ${item.title}: `, bold: true }),
-                  new TextRun(item.recommendation),
-                  new TextRun({ text: `\n   → Parallel Evidence: ${item.parallelBenchmark}`, italics: true })
-                ],
-                spacing: { after: 120 }
-              })
-            ) || []),
-
-            // What to Avoid
-            new Paragraph({
-              text: "WHAT TO AVOID IN NIGERIA (Capital Preservation & Failure Pitfalls):",
-              heading: HeadingLevel.HEADING_2,
-              spacing: { before: 200, after: 100 }
-            }),
-            ...(report.blueprint?.whatToAvoid?.map((item, i) =>
-              new Paragraph({
-                children: [
-                  new TextRun({ text: `${i + 1}. ${item.title}: `, bold: true }),
-                  new TextRun(item.warning),
-                  new TextRun({ text: `\n   × Risk Driver: ${item.pitfallReason}`, italics: true })
-                ],
-                spacing: { after: 120 }
-              })
-            ) || []),
-
-            // Investment Committee Verdict
-            new Paragraph({
-              text: "3. Trium Studio Investment Committee Verdict",
-              heading: HeadingLevel.HEADING_1,
-              spacing: { before: 250, after: 100 }
-            }),
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: report.blueprint?.triumStrategicVerdict || "No strategic verdict was returned.",
-                  bold: true
-                })
-              ],
-              spacing: { after: 250 }
-            }),
-
-            // Benchmark Peers Table
-            new Paragraph({
-              text: "4. Empirical Precedent Matrix",
+              text: "Comparable solutions",
               heading: HeadingLevel.HEADING_1,
               spacing: { before: 200, after: 100 }
             }),
@@ -279,9 +182,9 @@ export async function exportToWord(report) {
                   children: [
                     new TableCell({ children: [new Paragraph({ text: "Company & Country", bold: true })] }),
                     new TableCell({ children: [new Paragraph({ text: "Region Tier", bold: true })] }),
-                    new TableCell({ children: [new Paragraph({ text: "Funding, scale & customer evidence", bold: true })] }),
-                    new TableCell({ children: [new Paragraph({ text: "Model & viability", bold: true })] }),
-                    new TableCell({ children: [new Paragraph({ text: "Partners, lesson & source", bold: true })] })
+                    new TableCell({ children: [new Paragraph({ text: "Scale, customers & revenue", bold: true })] }),
+                    new TableCell({ children: [new Paragraph({ text: "Business model", bold: true })] }),
+                    new TableCell({ children: [new Paragraph({ text: "Execution, lessons & source", bold: true })] })
                   ]
                 }),
                 ...(report.benchmarks?.map(bm =>
@@ -289,16 +192,16 @@ export async function exportToWord(report) {
                     children: [
                       new TableCell({ children: [new Paragraph(`${bm.companyName} (${bm.country || "Global"})`)] }),
                       new TableCell({ children: [new Paragraph(bm.regionTier || "Nearby Africa")] }),
-                      new TableCell({ children: [new Paragraph([`Funding: ${bm.fundingRaised || "Not publicly reported"}`, `Scale: ${bm.operationalScale || "Not publicly reported"}`, `Customers/revenue: ${bm.customersAndRevenues || "Not publicly reported"}`].join("\n"))] }),
-                      new TableCell({ children: [new Paragraph([bm.businessModel || "Not reported", `ROI/viability: ${bm.roiAndViability || "Not publicly reported"}`].join("\n"))] }),
-                      new TableCell({ children: [new Paragraph([`Partners: ${bm.keyPartners || "Not publicly reported"}`, bm.lessonsLearned || "No lesson stated", bm.sourceUrl].join("\n"))] })
+                      new TableCell({ children: [new Paragraph([`Scale metrics: ${(bm.scaleMetrics || []).map((metric) => `${metric.metric}: ${metric.value}${metric.asOf ? ` (${metric.asOf})` : ""}`).join("; ") || bm.operationalScale || "Not publicly reported"}`, `Customers/revenue: ${bm.customersAndRevenues || "Not publicly reported"}`].join("\n"))] }),
+                      new TableCell({ children: [new Paragraph([bm.businessModel || "Not reported", `Execution: ${bm.executionModel || "Not reported"}`].join("\n"))] }),
+                      new TableCell({ children: [new Paragraph([`What worked: ${bm.whatWorked || "Not reported"}`, `Challenges: ${bm.challenges || "Not reported"}`, `Partners: ${bm.keyPartners || "Not publicly reported"}`, bm.lessonsLearned || "No lesson stated", bm.sourceUrl].join("\n"))] })
                     ]
                   })
                 ) || [])
               ]
             }),
             new Paragraph({
-              text: "5. Crawled Source Articles",
+              text: "Source articles",
               heading: HeadingLevel.HEADING_1,
               spacing: { before: 220, after: 100 }
             }),
@@ -357,7 +260,7 @@ export function exportToPdf(report) {
 
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    doc.text("GLOBAL BENCHMARK & LOCALIZATION BLUEPRINT", 210 - 15, 11, { align: "right" });
+    doc.text("COMPARATIVE MARKET BENCHMARK REPORT", 210 - 15, 11, { align: "right" });
 
     let y = 28;
 
@@ -387,91 +290,29 @@ export function exportToPdf(report) {
     doc.text(descLines.slice(0, 2), 18, y + 11);
     y += 28;
 
-    if (report.scoringCriteria) {
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.setTextColor(...dark);
-      doc.text("Trium 7-Criteria Assessment", 15, y);
-      y += 6;
-      doc.setFontSize(8.5);
-      doc.text(`Composite score: ${report.scoringCriteria.totalScore ?? "Not scored"}/100 · Grade ${report.scoringCriteria.grade || "Not graded"}`, 15, y);
-      y += 5;
-      for (const [name, criterion] of Object.entries(report.scoringCriteria)) {
-        if (!criterion || typeof criterion !== "object" || !("score" in criterion)) continue;
-        const scoreText = `${name.replace(/([A-Z])/g, " $1")}: ${criterion.score}/${criterion.max} · ${criterion.rationale || "No rationale returned."}`;
-        const scoreLines = doc.splitTextToSize(scoreText, 180);
-        if (y + scoreLines.length * 3.5 > 280) {
-          doc.addPage();
-          y = 20;
-        }
-        doc.setFont("helvetica", "normal");
-        doc.text(scoreLines, 15, y);
-        y += scoreLines.length * 3.5 + 1;
+    const reportSections = [
+      ["Executive summary", report.executiveSummary],
+      ["Market context", report.marketContext],
+      ["Cross-market execution patterns", (report.executionInsights || []).map((item) => "• " + item).join("\n")],
+      ["Market comparisons and lessons", (report.marketLessons || []).map((item) => "• " + item).join("\n")],
+    ];
+    doc.setFontSize(9);
+    for (const [heading, content] of reportSections) {
+      if (!content) continue;
+      const headingLines = doc.splitTextToSize(heading, 180);
+      const bodyLines = doc.splitTextToSize(content, 180);
+      if (y + 5 + bodyLines.length * 4 > 278) {
+        doc.addPage();
+        y = 20;
       }
-      y += 3;
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...dark);
+      doc.text(headingLines, 15, y);
+      y += headingLines.length * 4 + 1;
+      doc.setFont("helvetica", "normal");
+      doc.text(bodyLines, 15, y);
+      y += bodyLines.length * 4 + 4;
     }
-
-    // Section: What to Apply
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.setTextColor(30, 130, 76); // Green
-    doc.text("WHAT TO APPLY IN NIGERIA", 15, y);
-    y += 5;
-
-    doc.setFontSize(8.5);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(...dark);
-    if (report.blueprint?.whatToApply?.length) {
-      report.blueprint.whatToApply.forEach((item, idx) => {
-        doc.setFont("helvetica", "bold");
-        doc.text(`${idx + 1}. ${item.title}`, 15, y);
-        y += 4;
-        doc.setFont("helvetica", "normal");
-        const lines = doc.splitTextToSize(item.recommendation, 180);
-        doc.text(lines, 15, y);
-        y += lines.length * 3.8 + 2;
-      });
-    }
-    y += 3;
-
-    // Section: What to Avoid
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.setTextColor(186, 26, 26); // Red
-    doc.text("WHAT TO AVOID IN NIGERIA", 15, y);
-    y += 5;
-
-    doc.setFontSize(8.5);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(...dark);
-    if (report.blueprint?.whatToAvoid?.length) {
-      report.blueprint.whatToAvoid.forEach((item, idx) => {
-        doc.setFont("helvetica", "bold");
-        doc.text(`${idx + 1}. ${item.title}`, 15, y);
-        y += 4;
-        doc.setFont("helvetica", "normal");
-        const lines = doc.splitTextToSize(item.warning, 180);
-        doc.text(lines, 15, y);
-        y += lines.length * 3.8 + 2;
-      });
-    }
-    y += 5;
-
-    // IC Verdict Box
-    doc.setFillColor(255, 244, 232);
-    doc.setDrawColor(224, 112, 0);
-    doc.rect(15, y, 180, 16, "FD");
-    doc.setTextColor(146, 71, 0);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8.5);
-    doc.text("Trium Investment Committee Strategic Recommendation:", 18, y + 5);
-    doc.setFont("helvetica", "normal");
-    const verdictLines = doc.splitTextToSize(
-      report.blueprint?.triumStrategicVerdict || "No strategic verdict was returned.",
-      174
-    );
-    doc.text(verdictLines.slice(0, 2), 18, y + 10);
-    y += 24;
 
     // Empirical Benchmarks Summary
     doc.setTextColor(...dark);
@@ -485,11 +326,13 @@ export function exportToPdf(report) {
     if (report.benchmarks?.length) {
       report.benchmarks.forEach((bm) => {
         const details = [
-          `Model: ${bm.businessModel || "Not reported"}`,
+          `Business model: ${bm.businessModel || "Not reported"}`,
           `Customers/revenue: ${bm.customersAndRevenues || "Not publicly reported"}`,
-          `ROI/viability: ${bm.roiAndViability || "Not publicly reported"}`,
+          `Execution: ${bm.executionModel || "Not reported"}`,
           `Partners: ${bm.keyPartners || "Not publicly reported"}`,
-          `Scale: ${bm.operationalScale || "Not reported"}`,
+          `Scale metrics: ${(bm.scaleMetrics || []).map((metric) => `${metric.metric}: ${metric.value}${metric.asOf ? ` (${metric.asOf})` : ""}`).join("; ") || bm.operationalScale || "Not reported"}`,
+          `What worked: ${bm.whatWorked || "Not reported"}`,
+          `Challenges: ${bm.challenges || "Not reported"}`,
           `Lesson: ${bm.lessonsLearned || "Not stated"}`,
           `Source: ${bm.sourceUrl}`,
         ].join("\n");

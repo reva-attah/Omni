@@ -28,34 +28,6 @@ function isGroundedUrl(value: unknown, groundedUrls: Set<string>) {
   }
 }
 
-const scoringWeights = {
-  strategicAlignment: 20,
-  customerProblem: 20,
-  solutionFit: 15,
-  marketOpportunity: 15,
-  differentiation: 10,
-  sustainableAdvantage: 10,
-  feasibility: 10,
-} as const;
-
-function buildScoringCriteria(value: unknown) {
-  if (!value || typeof value !== "object") throw new Error("Gemini did not return a 7-criteria assessment.");
-  const source = value as Record<string, unknown>;
-  const criteria: Record<string, { score: number; max: number; rationale: string }> = {};
-  for (const [key, max] of Object.entries(scoringWeights)) {
-    const item = source[key];
-    if (!item || typeof item !== "object") throw new Error(`Gemini omitted the ${key} assessment.`);
-    const entry = item as Record<string, unknown>;
-    const score = Number(entry.score);
-    const rationale = typeof entry.rationale === "string" ? entry.rationale.trim() : "";
-    if (!Number.isFinite(score) || !rationale) throw new Error(`Gemini returned an incomplete ${key} assessment.`);
-    criteria[key] = { score: Math.max(0, Math.min(max, score)), max, rationale };
-  }
-  const totalScore = Object.values(criteria).reduce((sum, item) => sum + item.score, 0);
-  const grade = totalScore >= 86 ? "A*" : totalScore >= 76 ? "A" : totalScore >= 66 ? "B" : totalScore >= 57 ? "C" : "D";
-  return { ...criteria, totalScore, grade };
-}
-
 type CrawledBenchmarkArticle = {
   title: string;
   url: string;
@@ -264,7 +236,6 @@ export const executeBenchmark = internalAction({
     const key = env.GEMINI_API_KEY;
     if (!key) throw new Error("Benchmarking is not configured. Set GEMINI_API_KEY in Convex environment variables.");
 
-    const isFlow4b = args.flowType === "flow4b_gap_initiatives";
     const input: Array<Record<string, unknown>> = [];
     const brief = [args.description, args.problem && `Problem: ${args.problem}`, args.solution && `Solution: ${args.solution}`, args.targetCustomer && `Target: ${args.targetCustomer}`, args.monetization && `Monetization: ${args.monetization}`].filter(Boolean).join("\n\n");
 
@@ -277,136 +248,67 @@ export const executeBenchmark = internalAction({
     const crawledEvidence = sourceArticles.map((article, index) =>
       `ARTICLE ${index + 1}\nTitle: ${article.title}\nSource: ${article.sourceName} (${article.sourceRegion}; ${article.sourceCategory})\nURL: ${article.url}\nPublished: ${article.publishedDate || "Not stated"}\nSummary: ${article.summary}\nInitiatives: ${article.relatedInitiatives.join(", ") || "None identified"}`
     ).join("\n\n");
-    const searchInstruction = `CRITICAL CRAWLING INSTRUCTION: You MUST use the google_search tool to actively scrape the internet and find real benchmarks. You MUST prioritize crawling the following curated sources in our system:
-  ${domains.map((domain: string) => `site:${domain}`).join(" OR ")}
+    const searchInstruction = `CRITICAL RESEARCH INSTRUCTION: Use Google Search to find real, comparable solutions and direct sources. Prioritize curated source domains where relevant:
+${domains.map((domain: string) => `site:${domain}`).join(" OR ")}
 Registry crawl coverage: ${crawl.sourcesSucceeded} of ${crawl.sourcesAttempted} active sources returned pages${crawl.failedSources.length ? `; failures: ${crawl.failedSources.join("; ")}` : "."}
-Use the crawled article text below and Google Search to identify local and international benchmarks. Do not invent user counts, revenue, ROI, customer demographics, partnerships, funding, or legal conclusions; state "not publicly reported" when evidence is unavailable. Separate cited facts from your analysis. Only cite URLs present in the crawled articles or in Gemini Search citations.
+Use both the crawled evidence below and web search. Do not invent user counts, customers, revenue, transaction volumes, funding, or outcomes. For each numeric claim, provide the value, unit, and reporting period/year, and cite a source URL that directly supports it. If a figure is not publicly available, say so. Distinguish sourced facts from comparative analysis.
 
 Crawled registry articles:
 ${crawledEvidence}`;
 
-    let prompt = "";
-    if (isFlow4b) {
-      // Flow 4B: Gap Analysis & Viable Initiative Ideas Generator
-      prompt = `You are a venture builder at Trium (Coronation Group ecosystem).
-${searchInstruction}
+    const prompt = `You are a market research analyst preparing a comparative benchmark report. Research the venture described below by analyzing similar solutions and how they were executed in three groups:
+1. Nearby African markets, including Nigeria where relevant.
+2. Other emerging markets outside the nearby African group.
+3. Developed markets.
 
-Perform a competitive and market gap analysis against this initiative in Nigeria and peer emerging markets.
-Then, generate 2 to 3 distinct, highly viable initiative ideas designed to fill the identified gaps.
+Aim for at least two relevant, well-documented examples in each group when evidence permits. Prioritize direct company, regulator, investor, or reputable research sources. If a group has insufficient reliable evidence, say so rather than padding with weak matches.
 
-Return ONLY a JSON object with this exact structure:
+The report must be descriptive and evidence-led. Do not score, grade, rank, or assess the venture against criteria. Do not create new venture ideas or gap-driven concepts. Compare existing similar solutions and explain:
+- scale using numeric evidence where published (customers/users, merchants, countries, transaction volume, revenue, loan book, capacity, or another relevant measure); include unit and as-of date/year;
+- business model, payer/customer, pricing or revenue streams, and key partners;
+- execution model and distribution/operating approach;
+- what appears to have worked, supported by evidence;
+- challenges, pivots, shutdowns, or limits where reported;
+- useful cross-market patterns and context that may explain differences.
+
+Return ONLY a JSON object with this structure:
 {
   "ideaName": "${args.ideaName.trim()}",
   "sector": "${args.sector.trim()}",
   "description": "${args.description.slice(0, 300)}",
+  "executiveSummary": "A concise synthesis of the strongest comparable evidence and how outcomes differ by market group.",
+  "marketContext": "Relevant demand, infrastructure, regulation, and market-structure context across the three groups.",
+  "executionInsights": ["Evidence-backed execution pattern with cited example"],
+  "marketLessons": ["Evidence-backed comparison or transferability lesson; do not recommend or score the submitted venture."],
   "benchmarks": [
     {
       "companyName": "string",
       "country": "string",
-      "regionTier": "Nearby Africa|Emerging Peer|Global Leader",
+      "regionTier": "Nearby Africa|Other Emerging Market|Developed Market",
       "launchYear": "string",
-      "status": "Active|Pivoted|Shut down",
-      "fundingRaised": "string",
-      "operationalScale": "string",
-      "businessModel": "string",
-      "customersAndRevenues": "string",
-      "roiAndViability": "string",
-      "keyPartners": "string",
-      "lessonsLearned": "string",
-      "sourceUrl": "https://...",
-      "sourceName": "string",
-      "confidence": "Gemini Search-cited; verify at source"
-    }
-  ],
-  "blueprint": {
-    "whatToApply": [{"title": "string", "recommendation": "string", "parallelBenchmark": "string"}],
-    "whatToAvoid": [{"title": "string", "warning": "string", "pitfallReason": "string"}],
-    "recurringPatterns": ["string"],
-    "triumStrategicVerdict": "string"
-  },
-  "gapInitiativeIdeas": [
-    {
-      "ideaName": "Name expressing purpose/goals",
-      "description": "1 or 2 sentence description",
-      "category": "${args.sector.trim()}",
-      "problem": "Describe existing problem and how it affects people/businesses",
-      "solution": "Explain how idea solves problem and how to commercialize",
-      "similarSolutions": "Local or international examples or competition to learn from",
-      "targetCustomer": "Relevant customer segment (middle class, SMEs, large corporates, etc.) and value derived",
-      "goToMarket": "Access channels (agents, branches, digital, partnerships, etc.)",
-      "valueDrivers": ["Financial Inclusion", "Ecosystem Sticky Deposits", "B2B Supply Chain Digitization"],
-      "monetization": "How idea generates revenue for each participating entity/partner",
-      "additionalDetails": "Operational nuances in Nigeria",
-      "sourceLink": "https://..."
+      "status": "Active|Pivoted|Shut down|Not verified",
+      "businessModel": "Payer, pricing/revenue streams, and how the model operates",
+      "operationalScale": "Brief headline scale metric with value, unit, and reporting year; or Not publicly reported",
+      "scaleMetrics": [
+        {"metric": "e.g. annual transactions", "value": "number and unit", "asOf": "reporting year/date", "sourceUrl": "https://direct-source"}
+      ],
+      "customersAndRevenues": "Reported customer/revenue figures with units and period, or Not publicly reported",
+      "executionModel": "How the product/service was delivered and distributed",
+      "whatWorked": "Evidence-backed factors associated with adoption or operating success",
+      "challenges": "Reported constraints, pivots, or failure factors; or Not publicly reported",
+      "keyPartners": "Relevant partners and their role",
+      "lessonsLearned": "Descriptive lesson from this precedent",
+      "sourceUrl": "https://direct-source",
+      "sourceName": "string"
     }
   ]
 }
 
+Include up to nine strong comparables. Ensure the benchmark set covers all three groups where credible evidence exists. Each scale metric sourceUrl and each company's sourceUrl must be a direct URL present in the crawled material or the search citations. Do not substitute model judgement for missing figures. Keep claims concise enough to compare across companies.
+
 Venture: ${args.ideaName}
 Sector: ${args.sector}
 Brief: ${brief}`;
-    } else {
-      // Flow 4A: Global Precedent Benchmarking + 7-Criteria Assessment Guide
-      prompt = `You are an investment analyst at Trium (Coronation Group ecosystem).
-${searchInstruction}
-
-Research empirical local (Nigeria / Nearby Africa) and international (Emerging Peer / Global Leader) benchmarks for this venture.
-Evaluate the venture against Trium's 7 Investment Committee Criteria:
-1. Strategic Alignment (Weight: 20/100) - Ideation themes, long-term vision, strategy wheel & discriminating capabilities.
-2. Customer-Problem (Weight: 20/100) - Real & specific problem, willingness to adopt/pay, needs & expectations fit.
-3. Solution Fit (Weight: 15/100) - Customer base expansion, market size attractiveness, understanding market dynamics to lead.
-4. Market Opportunity (Weight: 15/100) - Uniqueness vs competitors, meaningful process/product improvements, significant impact.
-5. Differentiation (Weight: 10/100) - Longevity/relevance, competitor maturity, defense against disruption.
-6. Sustainable Advantage (Weight: 10/100) - Resources to execute, ease of acquiring technology/expertise, implementation obstacles.
-7. Feasibility (Weight: 10/100) - Building additional capabilities, ease of expanding to new segments/markets.
-
-Return ONLY a JSON object with this exact shape:
-{
-  "ideaName": "${args.ideaName.trim()}",
-  "sector": "${args.sector.trim()}",
-  "description": "${args.description.slice(0, 300)}",
-  "benchmarks": [
-    {
-      "companyName": "string",
-      "country": "string",
-      "regionTier": "Nearby Africa|Emerging Peer|Global Leader",
-      "launchYear": "string",
-      "status": "Active|Pivoted|Shut down",
-      "fundingRaised": "string",
-      "operationalScale": "string",
-      "businessModel": "string",
-      "customersAndRevenues": "string",
-      "roiAndViability": "string",
-      "keyPartners": "string",
-      "lessonsLearned": "string",
-      "sourceUrl": "https://...",
-      "sourceName": "string",
-      "confidence": "Gemini Search-cited; verify at source"
-    }
-  ],
-  "blueprint": {
-    "whatToApply": [{"title": "string", "recommendation": "string", "parallelBenchmark": "string"}],
-    "whatToAvoid": [{"title": "string", "warning": "string", "pitfallReason": "string"}],
-    "recurringPatterns": ["string"],
-    "triumStrategicVerdict": "string"
-  },
-  "scoringCriteria": {
-    "strategicAlignment": { "score": 0, "rationale": "Evidence-based assessment against all three considerations" },
-    "customerProblem": { "score": 0, "rationale": "Evidence-based assessment against all three considerations" },
-    "solutionFit": { "score": 0, "rationale": "Evidence-based assessment against all three considerations" },
-    "marketOpportunity": { "score": 0, "rationale": "Evidence-based assessment against all three considerations" },
-    "differentiation": { "score": 0, "rationale": "Evidence-based assessment against all three considerations" },
-    "sustainableAdvantage": { "score": 0, "rationale": "Evidence-based assessment against all three considerations" },
-    "feasibility": { "score": 0, "rationale": "Evidence-based assessment against both considerations" }
-  }
-}
-
-Score only from supplied facts and the cited research. Maximum scores are 20, 20, 15, 15, 10, 10, and 10 respectively. Include one concise rationale that addresses each criterion's listed considerations. Omit totalScore and grade; Reva computes both. Use up to six real companies with direct Search citations. Distinguish cited facts from model judgment.
-Venture: ${args.ideaName}
-Sector: ${args.sector}
-Brief: ${brief}`;
-    }
-
     input.unshift({ type: "text", text: prompt });
 
     const model = env.GEMINI_BENCHMARK_MODEL || env.GEMINI_MODEL || "gemini-3.1-pro-preview";
@@ -446,76 +348,67 @@ Brief: ${brief}`;
       if (!item || typeof item !== "object" || !isGroundedUrl(item.sourceUrl, groundedUrlSet)) return [];
       const companyName = typeof item.companyName === "string" ? item.companyName.trim() : "";
       if (!companyName) return [];
+      const regionTier = item.regionTier === "Nearby Africa"
+        ? "Nearby Africa"
+        : ["Other Emerging Market", "Emerging Peer"].includes(item.regionTier) ? "Other Emerging Market"
+        : ["Developed Market", "Global Leader"].includes(item.regionTier) ? "Developed Market"
+        : "Unclassified";
+      const scaleMetrics = Array.isArray(item.scaleMetrics) ? item.scaleMetrics.flatMap((metric: any) => {
+        if (!metric || typeof metric !== "object" || typeof metric.metric !== "string" || typeof metric.value !== "string" || !isGroundedUrl(metric.sourceUrl, groundedUrlSet)) return [];
+        return [{
+          metric: metric.metric,
+          value: metric.value,
+          ...(typeof metric.asOf === "string" && metric.asOf ? { asOf: metric.asOf } : {}),
+          sourceUrl: metric.sourceUrl,
+        }];
+      }) : [];
       return [{
         companyName,
         country: typeof item.country === "string" ? item.country : "Not stated",
-        regionTier: ["Nearby Africa", "Emerging Peer", "Global Leader"].includes(item.regionTier) ? item.regionTier : "Unclassified",
+        regionTier,
         launchYear: item.launchYear ? String(item.launchYear) : undefined,
         status: typeof item.status === "string" ? item.status : "Not verified",
-        fundingRaised: item.fundingRaised ? String(item.fundingRaised) : undefined,
         operationalScale: item.operationalScale ? String(item.operationalScale) : undefined,
         businessModel: typeof item.businessModel === "string" ? item.businessModel : "",
         customersAndRevenues: item.customersAndRevenues ? String(item.customersAndRevenues) : undefined,
-        roiAndViability: item.roiAndViability ? String(item.roiAndViability) : undefined,
         keyPartners: item.keyPartners ? String(item.keyPartners) : undefined,
         lessonsLearned: typeof item.lessonsLearned === "string" ? item.lessonsLearned : "",
+        scaleMetrics,
+        executionModel: typeof item.executionModel === "string" ? item.executionModel : undefined,
+        whatWorked: typeof item.whatWorked === "string" ? item.whatWorked : undefined,
+        challenges: typeof item.challenges === "string" ? item.challenges : undefined,
         sourceUrl: item.sourceUrl,
         sourceName: typeof item.sourceName === "string" && item.sourceName.trim() ? item.sourceName : new URL(item.sourceUrl).hostname,
-        confidence: "Gemini Search-cited; verify claims at source",
+        confidence: "Source linked; verify claims at source",
       }];
     }) : [];
-    const gapInitiativeIdeas = isFlow4b && Array.isArray(generated.gapInitiativeIdeas)
-      ? generated.gapInitiativeIdeas.flatMap((item: any) => {
-        if (!item || typeof item !== "object" || !isGroundedUrl(item.sourceLink, groundedUrlSet)) return [];
-        const requiredFields = ["ideaName", "description", "category", "problem", "solution", "similarSolutions", "targetCustomer", "goToMarket", "monetization"];
-        if (requiredFields.some((field) => typeof item[field] !== "string" || !item[field].trim())) return [];
-        return [{
-          ideaName: item.ideaName,
-          description: item.description,
-          category: item.category,
-          problem: item.problem,
-          solution: item.solution,
-          similarSolutions: item.similarSolutions,
-          targetCustomer: item.targetCustomer,
-          goToMarket: item.goToMarket,
-          valueDrivers: Array.isArray(item.valueDrivers) ? item.valueDrivers.filter((value: unknown): value is string => typeof value === "string") : [],
-          monetization: item.monetization,
-          ...(typeof item.additionalDetails === "string" ? { additionalDetails: item.additionalDetails } : {}),
-          sourceLink: item.sourceLink,
-        }];
-      })
-      : undefined;
     const report = {
       ideaName: String(generated.ideaName || args.ideaName || "Venture concept"),
       sector: String(generated.sector || args.sector || "Fintech & Financial Inclusion"),
       conceptHash: Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify([ownerId, args.ideaName, args.sector, args.description, args.flowType])))))
         .map((byte) => byte.toString(16).padStart(2, "0")).join(""),
       modelVersion: env.GEMINI_BENCHMARK_MODEL || env.GEMINI_MODEL || "gemini-3.1-pro-preview",
-      promptVersion: isFlow4b ? "benchmark-gap-v1" : "benchmark-scorecard-v1",
+      promptVersion: "comparative-market-report-v1",
       description: String(generated.description || brief),
       problem: String(args.problem || generated.problem || ""),
       solution: String(args.solution || generated.solution || ""),
       targetCustomer: String(args.targetCustomer || generated.targetCustomer || ""),
       monetization: String(args.monetization || generated.monetization || ""),
-      flowType: args.flowType || "flow4a_benchmark",
+      flowType: "benchmark_report",
+      executiveSummary: typeof generated.executiveSummary === "string" ? generated.executiveSummary : "",
+      marketContext: typeof generated.marketContext === "string" ? generated.marketContext : "",
+      executionInsights: Array.isArray(generated.executionInsights) ? generated.executionInsights.filter((item: unknown): item is string => typeof item === "string") : [],
+      marketLessons: Array.isArray(generated.marketLessons) ? generated.marketLessons.filter((item: unknown): item is string => typeof item === "string") : [],
       sourcesCrawled: crawl.sourcesSucceeded,
       sourceCrawlFailures: crawl.failedSources,
       sourceArticles,
       counts: {
         total: benchmarks.length,
         nearbyAfrica: benchmarks.filter((item: any) => item.regionTier === "Nearby Africa").length,
-        emergingPeers: benchmarks.filter((item: any) => item.regionTier === "Emerging Peer").length,
-        globalLeaders: benchmarks.filter((item: any) => item.regionTier === "Global Leader").length,
+        emergingPeers: benchmarks.filter((item: any) => item.regionTier === "Other Emerging Market").length,
+        globalLeaders: benchmarks.filter((item: any) => item.regionTier === "Developed Market").length,
       },
       benchmarks,
-      blueprint: {
-        whatToApply: Array.isArray(generated.blueprint?.whatToApply) ? generated.blueprint.whatToApply : [],
-        whatToAvoid: Array.isArray(generated.blueprint?.whatToAvoid) ? generated.blueprint.whatToAvoid : [],
-        recurringPatterns: Array.isArray(generated.blueprint?.recurringPatterns) ? generated.blueprint.recurringPatterns : [],
-        triumStrategicVerdict: String(generated.blueprint?.triumStrategicVerdict || ""),
-      },
-      scoringCriteria: isFlow4b ? undefined : buildScoringCriteria(generated.scoringCriteria),
-      gapInitiativeIdeas,
     };
 
     const id: Id<"benchmarks"> = await ctx.runMutation(internal.benchmarks.saveGenerated, {

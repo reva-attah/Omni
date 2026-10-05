@@ -17,7 +17,11 @@ export default defineSchema({
     solution:        v.string(),
     targetCustomer:  v.string(),
     monetization:    v.optional(v.string()),
-    flowType:        v.optional(v.string()), // "flow4a_benchmark" | "flow4b_gap_initiatives"
+    flowType:        v.optional(v.string()),
+    executiveSummary: v.optional(v.string()),
+    marketContext:    v.optional(v.string()),
+    executionInsights: v.optional(v.array(v.string())),
+    marketLessons:    v.optional(v.array(v.string())),
     sourcesCrawled:  v.optional(v.number()),
     sourceCrawlFailures: v.optional(v.array(v.string())),
     sourceArticles: v.optional(v.array(v.object({
@@ -45,13 +49,22 @@ export default defineSchema({
       roiAndViability:  v.optional(v.string()),
       keyPartners:      v.optional(v.string()),
       lessonsLearned:   v.string(),
+      scaleMetrics: v.optional(v.array(v.object({
+        metric: v.string(),
+        value: v.string(),
+        asOf: v.optional(v.string()),
+        sourceUrl: v.string(),
+      }))),
+      executionModel: v.optional(v.string()),
+      whatWorked: v.optional(v.string()),
+      challenges: v.optional(v.string()),
       sourceUrl:        v.string(),
       sourceName:       v.string(),
       confidence:       v.string(),
     })),
 
     // Localization blueprint: What to Apply vs What to Avoid in Nigeria
-    blueprint: v.object({
+    blueprint: v.optional(v.object({
       whatToApply: v.array(v.object({
         title:             v.string(),
         recommendation:    v.string(),
@@ -64,7 +77,7 @@ export default defineSchema({
       })),
       recurringPatterns:     v.array(v.string()),
       triumStrategicVerdict: v.string(),
-    }),
+    })),
 
     // Reva 7-Criteria Assessment (Flow 4A)
     scoringCriteria: v.optional(v.any()),

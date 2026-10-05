@@ -51,7 +51,7 @@ export const getByConceptHash = query({
 });
 
 /**
- * Save a generated benchmark report (Flow 4A or 4B).
+ * Save a generated comparative benchmark report.
  */
 export const saveGenerated = internalMutation({
   args: {
@@ -67,6 +67,10 @@ export const saveGenerated = internalMutation({
     targetCustomer: v.string(),
     monetization: v.optional(v.string()),
     flowType: v.optional(v.string()),
+    executiveSummary: v.optional(v.string()),
+    marketContext: v.optional(v.string()),
+    executionInsights: v.optional(v.array(v.string())),
+    marketLessons: v.optional(v.array(v.string())),
     sourcesCrawled: v.optional(v.number()),
     sourceCrawlFailures: v.optional(v.array(v.string())),
     sourceArticles: v.optional(v.array(v.object({
@@ -93,12 +97,21 @@ export const saveGenerated = internalMutation({
         roiAndViability: v.optional(v.string()),
         keyPartners: v.optional(v.string()),
         lessonsLearned: v.string(),
+        scaleMetrics: v.optional(v.array(v.object({
+          metric: v.string(),
+          value: v.string(),
+          asOf: v.optional(v.string()),
+          sourceUrl: v.string(),
+        }))),
+        executionModel: v.optional(v.string()),
+        whatWorked: v.optional(v.string()),
+        challenges: v.optional(v.string()),
         sourceUrl: v.string(),
         sourceName: v.string(),
         confidence: v.string(),
       })
     ),
-    blueprint: v.object({
+    blueprint: v.optional(v.object({
       whatToApply: v.array(
         v.object({
           title: v.string(),
@@ -115,9 +128,7 @@ export const saveGenerated = internalMutation({
       ),
       recurringPatterns: v.array(v.string()),
       triumStrategicVerdict: v.string(),
-    }),
-    scoringCriteria: v.optional(v.any()),
-    gapInitiativeIdeas: v.optional(v.any()),
+    })),
     counts: v.object({
       total: v.number(),
       nearbyAfrica: v.number(),
