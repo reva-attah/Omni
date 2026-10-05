@@ -6,8 +6,9 @@ import { ConvexProviderWithAuth, ConvexReactClient } from "convex/react";
 import { useCallback } from "react";
 import "./index.css";
 
-const convexUrl = import.meta.env.VITE_CONVEX_URL;
-const vantaConvexUrl = import.meta.env.VITE_VANTA_CONVEX_URL;
+const normalizeConvexUrl = (url) => url?.replace(/\/+$/, "");
+const convexUrl = normalizeConvexUrl(import.meta.env.VITE_CONVEX_URL);
+const vantaConvexUrl = normalizeConvexUrl(import.meta.env.VITE_VANTA_CONVEX_URL);
 if (!convexUrl) {
   throw new Error("VITE_CONVEX_URL is required to connect Omni to its Convex deployment.");
 }
