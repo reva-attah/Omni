@@ -64,7 +64,7 @@ export function EmailAuditLogs({ emailLogs }) {
         <div>
           <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Delivery history</p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-on-surface font-headline">Email delivery</h1>
-          <p className="mt-1 text-xs leading-relaxed text-secondary">Resend status events for passing Reva screening alerts.</p>
+          <p className="mt-1 text-xs leading-relaxed text-secondary">Resend status events for passing Omni screening alerts.</p>
         </div>
         <div className="text-right text-xs text-secondary">{filteredLogs.length} matching records</div>
       </header>
@@ -112,7 +112,7 @@ export function EmailAuditLogs({ emailLogs }) {
                   const tone = state === "delivered" ? "bg-emerald-500/10 text-emerald-800" : state === "issue" ? "bg-red-500/10 text-red-800" : state === "pending" ? "bg-amber-500/10 text-amber-900" : "bg-surface-low text-secondary";
                   return (
                     <tr key={log._id} className="align-top hover:bg-surface-low/30">
-                      <td className="p-3"><p className="font-semibold text-on-surface">{log.initiativeName}</p><p className="mt-1 text-[11px] text-secondary">Reva score {log.vantaScore}/100 · Grade {log.vantaGrade}</p></td>
+                      <td className="p-3"><p className="font-semibold text-on-surface">{log.initiativeName}</p><p className="mt-1 text-[11px] text-secondary">Omni score {log.vantaScore}/100 · Grade {log.vantaGrade}</p></td>
                       <td className="max-w-sm p-3"><p className="font-medium text-on-surface">{log.recipient}</p><p className="mt-1 text-[11px] leading-relaxed text-secondary">{log.subject}</p></td>
                       <td className="p-3"><span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold capitalize ${tone}`}>{log.status}</span>{log.error && <p className="mt-1 max-w-xs text-[11px] text-red-700">{log.error}</p>}</td>
                       <td className="whitespace-nowrap p-3 text-secondary">{new Date(log.dispatchedAt).toLocaleString()}</td>
@@ -124,7 +124,7 @@ export function EmailAuditLogs({ emailLogs }) {
             </table>
           ) : (
             <div className="grid min-h-48 place-items-center p-6 text-center">
-              <div><span className="material-symbols-outlined text-3xl text-secondary">mark_email_read</span><h2 className="mt-2 font-semibold text-on-surface">No matching delivery records</h2><p className="mt-1 text-xs text-secondary">Adjust filters or check back after a passing Reva screen is queued.</p></div>
+              <div><span className="material-symbols-outlined text-3xl text-secondary">mark_email_read</span><h2 className="mt-2 font-semibold text-on-surface">No matching delivery records</h2><p className="mt-1 text-xs text-secondary">Adjust filters or check back after a passing Omni screen is queued.</p></div>
             </div>
           )}
         </div>

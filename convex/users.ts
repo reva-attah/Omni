@@ -1,6 +1,6 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
-import { isApprovedVantaIdentity } from "./access";
+import { isAuthorizedOmniIdentity } from "./access";
 
 export const currentIdentity = query({
   args: {},
@@ -16,7 +16,7 @@ export const currentIdentity = query({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return null;
     const result: { name?: string; email?: string; authorized: boolean } = {
-      authorized: isApprovedVantaIdentity(identity),
+      authorized: isAuthorizedOmniIdentity(identity),
     };
     if (identity.name) result.name = identity.name;
     if (identity.email) result.email = identity.email;

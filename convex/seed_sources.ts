@@ -1,37 +1,44 @@
 import { internalMutation } from "./_generated/server";
+import { v } from "convex/values";
 
-const INITIAL_REGISTRY_SOURCES = [
-  { name: "Disrupt Africa", url: "https://disrupt-africa.com", region: "Africa (Pan-African)", category: "Emerging Market Primary", tier: "tier_a_emerging" },
-  { name: "WeeTracker", url: "https://weetracker.com", region: "Africa (East & Southern)", category: "Emerging Market Primary", tier: "tier_a_emerging" },
-  { name: "Tech in Asia", url: "https://www.techinasia.com", region: "Southeast Asia", category: "Emerging Market Primary", tier: "tier_a_emerging" },
-  { name: "DailySocial Indonesia", url: "https://dailysocial.id", region: "Southeast Asia (Indonesia)", category: "Emerging Market Primary", tier: "tier_a_emerging" },
-  { name: "Wamda MENA", url: "https://www.wamda.com", region: "MENA", category: "Emerging Market Primary", tier: "tier_a_emerging" },
-  { name: "Inc42 India", url: "https://inc42.com", region: "South Asia (India)", category: "Emerging Market Primary", tier: "tier_a_emerging" },
-  { name: "Startups Brazil", url: "https://startups.com.br", region: "Latin America (Brazil)", category: "Emerging Market Primary", tier: "tier_a_emerging" },
-  { name: "Enterprise News Egypt", url: "https://enterprise.press", region: "MENA (Egypt)", category: "Emerging Market Primary", tier: "tier_a_emerging" },
-  { name: "Central Bank of Nigeria (CBN)", url: "https://www.cbn.gov.ng/Documents/circulars.asp", region: "Nigeria", category: "Nigerian Regulatory, Legal and Policy Environment", tier: "nigeria_regulator" },
-  { name: "Securities & Exchange Commission (SEC Nigeria)", url: "https://sec.gov.ng/rules-codes-circulars", region: "Nigeria", category: "Nigerian Regulatory, Legal and Policy Environment", tier: "nigeria_regulator" },
-  { name: "Nigerian Electricity Regulatory Commission (NERC)", url: "https://nerc.gov.ng/orders", region: "Nigeria", category: "Nigerian Regulatory, Legal and Policy Environment", tier: "nigeria_regulator" },
-  { name: "National Info Tech Dev Agency (NITDA)", url: "https://nitda.gov.ng/guidelines", region: "Nigeria", category: "Nigerian Regulatory, Legal and Policy Environment", tier: "nigeria_regulator" },
-  { name: "Federal Inland Revenue Service (FIRS)", url: "https://www.firs.gov.ng/tax-resources", region: "Nigeria", category: "Nigerian Regulatory, Legal and Policy Environment", tier: "nigeria_regulator" },
-  { name: "Federal Ministry of Communications, Innovation & Digital Economy", url: "https://bmdce.gov.ng", region: "Nigeria", category: "Nigerian Regulatory, Legal and Policy Environment", tier: "nigeria_regulator" },
-  { name: "Crunchbase News (Global)", url: "https://news.crunchbase.com", region: "Global", category: "Global Fallback", tier: "tier_b_global" },
-  { name: "TechCrunch Emerging", url: "https://techcrunch.com", region: "Global", category: "Global Fallback", tier: "tier_b_global" },
-  { name: "Y Combinator Launches", url: "https://www.ycombinator.com/blog", region: "Global", category: "Global Fallback", tier: "tier_b_global" },
-];
+const source = v.object({
+  name: v.string(),
+  url: v.string(),
+  region: v.string(),
+  category: v.string(),
+  tier: v.string(),
+  sector: v.optional(v.string()),
+});
 
-export const seed = internalMutation(async (ctx) => {
-  for (const src of INITIAL_REGISTRY_SOURCES) {
-    const existing = await ctx.db.query("sourceRegistry").withIndex("by_name").filter(q => q.eq(q.field("name"), src.name)).first();
-    if (!existing) {
+/** Idempotently load the curated source lists from config into an empty/new deployment. */
+export const seed = internalMutation({
+  args: { sources: v.array(source) },
+  returns: v.object({ added: v.number(), alreadyPresent: v.number() }),
+  handler: async (ctx, args) => {
+    if (args.sources.length > 100) throw new Error("Seed sources in batches of 100 or fewer.");
+    let added = 0;
+    let alreadyPresent = 0;
+    for (const item of args.sources) {
+      const parsed = new URL(item.url);
+      if (parsed.protocol !== "https:") throw new Error(`Source URL must use HTTPS: ${item.url}`);
+      const url = parsed.toString().replace(/\/$/, "");
+      const existing = await ctx.db.query("sourceRegistry")
+        .withIndex("by_url", (q) => q.eq("url", url))
+        .first();
+      if (existing) {
+        alreadyPresent++;
+        continue;
+      }
       await ctx.db.insert("sourceRegistry", {
-        ...src,
+        ...item,
+        url,
         isActive: true,
-        signOffRevaAdmin: true,
+        dateAdded: Date.now(),
         failureCount: 0,
-        dateAdded: Date.now()
+        signOffRevaAdmin: true,
       });
+      added++;
     }
-  }
-  return "Seeded successfully";
+    return { added, alreadyPresent };
+  },
 });

@@ -1,6 +1,6 @@
 import { internal } from "./_generated/api";
 import { internalQuery, internalMutation, mutation, query } from "./_generated/server";
-import { isApprovedVantaIdentity } from "./access";
+import { isAuthorizedOmniIdentity } from "./access";
 import { v } from "convex/values";
 
 const briefValidator = v.object({ ideaName: v.string(), sector: v.string(), description: v.string(), problem: v.string(), solution: v.string(), targetCustomer: v.string(), monetization: v.string() });
@@ -9,7 +9,7 @@ export const getDraft = query({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     return await ctx.db.query("benchmarkDrafts").withIndex("by_owner", q => q.eq("ownerId", identity.subject)).first();
   },
 });
@@ -19,7 +19,7 @@ export const saveDraft = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     if (args.documentId) {
       const document = await ctx.db.get(args.documentId);
       if (!document || document.ownerId !== identity.subject) throw new Error("Attached document not found.");
@@ -40,7 +40,7 @@ export const listMyJobs = query({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     return await ctx.db.query("benchmarkJobs").withIndex("by_owner_createdAt", q => q.eq("ownerId", identity.subject)).order("desc").take(10);
   },
 });
@@ -65,7 +65,7 @@ export const startBenchmark = mutation({
   returns: v.id("benchmarkJobs"),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     if (args.documentId) {
       const document = await ctx.db.get(args.documentId);
       if (!document || document.ownerId !== identity.subject) throw new Error("Attached document not found.");
@@ -87,7 +87,7 @@ export const getMyJob = query({
   args: { jobId: v.id("benchmarkJobs") },
   handler: async (ctx, { jobId }) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     const job = await ctx.db.get(jobId);
     if (!job || job.ownerId !== identity.subject) return null;
     const document = job.documentId ? await ctx.db.get(job.documentId) : null;

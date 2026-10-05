@@ -3,7 +3,7 @@
 import { action, internalAction, env } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
-import { isApprovedVantaIdentity } from "./access";
+import { isAuthorizedOmniIdentity } from "./access";
 import type { Id } from "./_generated/dataModel";
 import { waitForGeminiSlot } from "./geminiQueue";
 import { parseModelObject } from "./aiValidation";
@@ -182,7 +182,7 @@ export const extractBrief = action({
   }),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     const key = env.GEMINI_API_KEY;
     let sourceText = args.text?.trim() || "";
     const input: Array<Record<string, unknown>> = [];

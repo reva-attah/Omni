@@ -3,7 +3,7 @@ import { components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { Resend } from "@convex-dev/resend";
 import { v } from "convex/values";
-import { isApprovedVantaIdentity } from "./access";
+import { isAuthorizedOmniIdentity } from "./access";
 import type { DataModel } from "./_generated/dataModel";
 
 const resend = new Resend(components.resend, {
@@ -20,7 +20,7 @@ export const listLogs = query({
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     const limit = args.limit ?? 50;
     const [owned, scoutOwned] = await Promise.all([
       ctx.db.query("emailLogs").withIndex("by_owner_dispatchedAt", (q) => q.eq("ownerId", identity.subject)).order("desc").take(limit),

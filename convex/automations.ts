@@ -1,7 +1,7 @@
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import { isApprovedVantaIdentity } from "./access";
+import { isAuthorizedOmniIdentity } from "./access";
 import type { Id } from "./_generated/dataModel";
 
 const actionType = v.union(v.literal("both_scouts"), v.literal("emerging_scout"), v.literal("policy_scout"));
@@ -32,7 +32,7 @@ export const listAutomations = query({
   returns: v.array(v.any()),
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     return await ctx.db.query("automations").withIndex("by_createdAt").order("desc").take(100);
   },
 });
@@ -42,7 +42,7 @@ export const toggleAutomation = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     const automation = await ctx.db.get(args.id);
     if (!automation) throw new Error("Automation was not found.");
     if (automation.scheduledFunctionId) {
@@ -82,7 +82,7 @@ export const createAutomation = mutation({
   returns: v.id("automations"),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     if (!Number.isInteger(args.intervalMinutes) || args.intervalMinutes < 60 || args.intervalMinutes > 43200) {
       throw new Error("Custom scout schedules must run between once per hour and once every 30 days.");
     }

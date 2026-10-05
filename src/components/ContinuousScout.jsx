@@ -143,7 +143,7 @@ export function ContinuousScout({ onNavigate }) {
       }));
       
       const res = await screenBatch({ scoutType, candidates: mappedCandidates });
-      setNotice(`Screened ${res.processed} of ${candidates.length} opportunities. Check the Screened tab for detailed Reva 7-criteria results.${res.errors.length ? ` ${res.errors[0]}` : ""}`);
+      setNotice(`Screened ${res.processed} of ${candidates.length} opportunities. Check the Screened tab for detailed Omni 7-criteria results.${res.errors.length ? ` ${res.errors[0]}` : ""}`);
       setActiveTab("screened");
       setScoutStatus(res.errors.length ? "Partial" : "Scheduled");
     } catch (err) {
@@ -371,7 +371,7 @@ export function ContinuousScout({ onNavigate }) {
               Autonomous Continuous Scout & Viability Patrol
             </h1>
             <p className="mt-0.5 text-xs text-secondary max-w-3xl leading-relaxed">
-              Daily scheduled runs monitor {((overview?.activeEmergingSources || 0) + (overview?.activePolicySources || 0))} active registry sources. Gemini classification and Reva screening require the configured Gemini service; Vanta matching is a separate optional check.
+              Daily scheduled runs monitor {((overview?.activeEmergingSources || 0) + (overview?.activePolicySources || 0))} active registry sources. Gemini classification and Omni screening require the configured Gemini service; Vanta matching is a separate optional check.
             </p>
           </div>
 
@@ -396,7 +396,7 @@ export function ContinuousScout({ onNavigate }) {
           <div className="p-3 rounded-lg bg-surface-low/80 border border-amber-900/10">
             <span className="text-[10px] font-bold uppercase tracking-wider text-secondary block">MONITORED SOURCES</span>
             <span className="font-headline font-bold text-lg text-on-surface mt-0.5 block">{((overview?.activeEmergingSources || 0) + (overview?.activePolicySources || 0)) || 0} Active Feeds</span>
-            <span className="text-[10px] text-secondary">Configured sources in the registry</span>
+            <span className="text-[10px] text-secondary">{overview?.firecrawlConfigured ? "Firecrawl enabled" : "RSS/HTML active · Firecrawl key needed for fallback"}</span>
           </div>
 
           <button onClick={() => setActiveTab("articles")} className="p-3 rounded-lg bg-surface-low/80 border border-amber-900/10 text-left hover:bg-surface-low transition-colors w-full">

@@ -1,6 +1,6 @@
 import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
-import { isApprovedVantaIdentity } from "./access";
+import { isAuthorizedOmniIdentity } from "./access";
 
 /**
  * List venture initiatives with optional filtering by status, source type, or grade.
@@ -14,7 +14,7 @@ export const listInitiatives = query({
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     const limit = args.limit ?? 50;
     const [owned, scoutOwned] = await Promise.all([
       ctx.db.query("initiatives").withIndex("by_owner_createdAt", (q) => q.eq("ownerId", identity.subject)).order("desc").take(limit * 2),
@@ -43,7 +43,7 @@ export const getById = query({
   args: { id: v.id("initiatives") },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     const item = await ctx.db.get(args.id);
     return item?.ownerId === identity.subject ? item : null;
   },
@@ -56,7 +56,7 @@ export const getMetrics = query({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     const [owned, scoutOwned] = await Promise.all([
       ctx.db.query("initiatives").withIndex("by_owner_createdAt", (q) => q.eq("ownerId", identity.subject)).take(500),
       ctx.db.query("initiatives").withIndex("by_owner_createdAt", (q) => q.eq("ownerId", "reva-scout")).take(500),
@@ -190,7 +190,7 @@ export const deleteInitiative = mutation({
   args: { id: v.id("initiatives") },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     const item = await ctx.db.get(args.id);
     if (!item || item.ownerId !== identity.subject) throw new Error("Initiative not found");
     await ctx.db.delete(args.id);

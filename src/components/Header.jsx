@@ -17,7 +17,7 @@ export function Header({ activeTab, setActiveTab, user, onLogout, sidebarCollaps
       <div className="flex items-center gap-2">
         <span className="text-xs font-bold uppercase tracking-wider text-primary">Trium</span>
         <span className="text-secondary/50">/</span>
-        <span className="text-sm font-bold text-on-surface font-headline">{pageTitles[activeTab] || "Reva Intelligence"}</span>
+        <span className="text-sm font-bold text-on-surface font-headline">{pageTitles[activeTab] || "Omni"}</span>
       </div>
 
       <div className="relative">

@@ -7,42 +7,27 @@ import { useCallback } from "react";
 import "./index.css";
 
 const convexUrl = import.meta.env.VITE_CONVEX_URL;
-const legacyVantaUrl = import.meta.env.VITE_VANTA_CONVEX_URL;
-const vantaDevUrl = import.meta.env.VITE_VANTA_DEV_CONVEX_URL || (import.meta.env.DEV ? legacyVantaUrl : undefined);
-const vantaProdUrl = import.meta.env.VITE_VANTA_PROD_CONVEX_URL || (!import.meta.env.DEV ? legacyVantaUrl : undefined);
-const canSwitchVantaEnvironment = Boolean(import.meta.env.DEV && vantaDevUrl && vantaProdUrl);
-const savedVantaEnvironment = canSwitchVantaEnvironment
-  ? window.localStorage.getItem("reva-vanta-environment")
-  : null;
-const vantaEnvironment = canSwitchVantaEnvironment
-  ? savedVantaEnvironment === "production" ? "production" : "development"
-  : import.meta.env.DEV && vantaDevUrl ? "development" : "production";
-const vantaConvexUrl = canSwitchVantaEnvironment
-  ? (vantaEnvironment === "production" ? vantaProdUrl : vantaDevUrl)
-  : (import.meta.env.DEV ? vantaDevUrl || vantaProdUrl || legacyVantaUrl : vantaProdUrl || legacyVantaUrl);
-if (!convexUrl || !vantaConvexUrl) {
-  throw new Error("VITE_CONVEX_URL and a Vanta Convex URL are required to connect Reva and Vanta authentication.");
+const vantaConvexUrl = import.meta.env.VITE_VANTA_CONVEX_URL;
+if (!convexUrl) {
+  throw new Error("VITE_CONVEX_URL is required to connect Omni to its Convex deployment.");
 }
-const revaClient = new ConvexReactClient(convexUrl);
-const vantaClient = new ConvexReactClient(vantaConvexUrl);
-
-function switchVantaEnvironment(environment) {
-  if (!canSwitchVantaEnvironment || !["development", "production"].includes(environment)) return;
-  window.localStorage.setItem("reva-vanta-environment", environment);
-  window.location.reload();
+if (!vantaConvexUrl) {
+  throw new Error("VITE_VANTA_CONVEX_URL is required to sign in with Vanta.");
 }
+const convex = new ConvexReactClient(convexUrl);
+const vanta = new ConvexReactClient(vantaConvexUrl);
 
-function RevaAuthBridge({ children }) {
+function OmniAuthBridge({ children }) {
   const token = useAuthToken();
   const { isLoading, isAuthenticated } = useVantaAuth();
   const fetchAccessToken = useCallback(async () => token, [token]);
-  const useVantaToken = useCallback(() => ({
+  const useAuth = useCallback(() => ({
     isLoading,
     isAuthenticated,
     fetchAccessToken,
   }), [isLoading, isAuthenticated, fetchAccessToken]);
 
-  return <ConvexProviderWithAuth client={revaClient} useAuth={useVantaToken}>{children}</ConvexProviderWithAuth>;
+  return <ConvexProviderWithAuth client={convex} useAuth={useAuth}>{children}</ConvexProviderWithAuth>;
 }
 
 class ErrorBoundary extends Component {
@@ -56,7 +41,7 @@ class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error("Reva Application Error:", error, errorInfo);
+    console.error("Omni Application Error:", error, errorInfo);
   }
 
   render() {
@@ -83,7 +68,7 @@ class ErrorBoundary extends Component {
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
               <div style={{ width: 12, height: 12, borderRadius: "50%", background: "#DC2626" }} />
               <h2 style={{ fontSize: 18, fontWeight: 800, color: "#1D1B18" }}>
-                Reva Interface Notice
+                Omni Interface Notice
               </h2>
             </div>
             <p style={{ fontSize: 13, color: "#605E5B", marginBottom: 16 }}>
@@ -128,14 +113,10 @@ class ErrorBoundary extends Component {
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <ErrorBoundary>
-      <ConvexAuthProvider client={vantaClient}>
-        <RevaAuthBridge>
-          <App
-            vantaEnvironment={vantaEnvironment}
-            canSwitchVantaEnvironment={canSwitchVantaEnvironment}
-            onSwitchVantaEnvironment={switchVantaEnvironment}
-          />
-        </RevaAuthBridge>
+      <ConvexAuthProvider client={vanta}>
+        <OmniAuthBridge>
+          <App />
+        </OmniAuthBridge>
       </ConvexAuthProvider>
     </ErrorBoundary>
   </React.StrictMode>

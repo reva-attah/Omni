@@ -32,17 +32,16 @@ type Env = {
   readonly CONVEX_SITE_URL: string;
   readonly DIT_ALERT_THRESHOLD_SCORE: string | undefined;
   readonly DIT_NOTIFICATION_EMAIL: string | undefined;
+  readonly FIRECRAWL_API_KEY: string | undefined;
   readonly GEMINI_API_KEY: string | undefined;
   readonly GEMINI_BENCHMARK_MODEL: string | undefined;
   readonly GEMINI_MODEL: string | undefined;
   readonly RESEND_API_KEY: string | undefined;
   readonly RESEND_FROM_EMAIL: string | undefined;
   readonly REVA_ADMIN_EMAIL: string | undefined;
-  readonly VANTA_ADMIN_EMAIL: string | undefined;
   readonly VANTA_API_BASE_URL: string | undefined;
   readonly VANTA_API_KEY: string | undefined;
   readonly VANTA_CONVEX_SITE_URL: string | undefined;
-  readonly VANTA_DEV_CONVEX_SITE_URL: string | undefined;
 };
 
 /**

@@ -1,6 +1,6 @@
 import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
-import { isApprovedVantaIdentity } from "./access";
+import { isAuthorizedOmniIdentity } from "./access";
 
 /**
  * List recent benchmark reports, ordered by creation date descending.
@@ -11,7 +11,7 @@ export const listRecent = query({
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     const limit = args.limit ?? 50;
     const items = await ctx.db
       .query("benchmarks")
@@ -29,7 +29,7 @@ export const getById = query({
   args: { id: v.id("benchmarks") },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     const report = await ctx.db.get(args.id);
     return report?.ownerId === identity.subject ? report : null;
   },
@@ -42,7 +42,7 @@ export const getByConceptHash = query({
   args: { conceptHash: v.string() },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     return await ctx.db
       .query("benchmarks")
       .withIndex("by_owner_conceptHash", (q) => q.eq("ownerId", identity.subject).eq("conceptHash", args.conceptHash))
@@ -154,7 +154,7 @@ export const deleteBenchmark = mutation({
   args: { id: v.id("benchmarks") },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     const report = await ctx.db.get(args.id);
     if (!report || report.ownerId !== identity.subject) throw new Error("Benchmark report not found");
     await ctx.db.delete(args.id);

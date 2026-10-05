@@ -7,21 +7,21 @@ const platformPipelines = [
   {
     title: "Emerging-market scout",
     trigger: "Daily at 05:00 WAT",
-    action: "Crawl active emerging/global sources, classify new articles with Gemini, and screen grounded opportunities in Reva.",
+    action: "Crawl active emerging/global sources, classify new articles with Gemini, and screen grounded opportunities in Omni.",
   },
   {
     title: "Nigerian policy scout",
     trigger: "Daily at 06:00 WAT",
-    action: "Crawl active Nigerian policy sources, classify new articles with Gemini, and screen grounded opportunities in Reva.",
+    action: "Crawl active Nigerian policy sources, classify new articles with Gemini, and screen grounded opportunities in Omni.",
   },
   {
     title: "Vanta duplicate lookup",
-    trigger: "During Reva screening when Vanta read access is configured",
-    action: "Compare against live portfolio records; unavailable checks are recorded as not checked and do not block Reva scoring.",
+    trigger: "During Omni screening when Vanta read access is configured",
+    action: "Compare against live portfolio records; unavailable checks are recorded as not checked and do not block Omni scoring.",
   },
   {
     title: "DIT screening alert",
-    trigger: "Reva score >= 66 and Nigeria viability is Medium or High",
+    trigger: "Omni score >= 66 and Nigeria viability is Medium or High",
     action: "Queue the seven-criteria assessment through Resend when sender and DIT recipient are configured.",
   },
 ];

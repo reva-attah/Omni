@@ -3,7 +3,7 @@
 import { action, internalAction, env } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
-import { isApprovedVantaIdentity } from "./access";
+import { isAuthorizedOmniIdentity } from "./access";
 import type { Id } from "./_generated/dataModel";
 import { waitForGeminiSlot } from "./geminiQueue";
 import { parseModelObject, boundedScore } from "./aiValidation";
@@ -25,7 +25,7 @@ export const screenVenture = action({
   returns: v.object({ id: v.id("initiatives"), result: v.any(), emailStatus: v.string() }),
   handler: async (ctx, args): Promise<{ id: Id<"initiatives">; result: unknown; emailStatus: string }> => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     const key = env.GEMINI_API_KEY;
     if (!key) throw new Error("Screening is not configured. Set GEMINI_API_KEY in Convex environment variables.");
     const hasBrief = [args.description, args.problem, args.solution, args.targetCustomer].some((value) => value.trim());
@@ -322,7 +322,7 @@ export const screenBatch = action({
   returns: v.object({ processed: v.number(), errors: v.array(v.string()) }),
   handler: async (ctx, args): Promise<{ processed: number; errors: string[] }> => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("Unauthorized");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("Unauthorized");
     return await ctx.runAction(internal.screening.processScoutCandidates, args);
   }
 });

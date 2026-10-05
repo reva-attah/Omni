@@ -1,7 +1,12 @@
 import type { AuthConfig } from "convex/server";
 import { env } from "./_generated/server";
 
-const providers: AuthConfig["providers"] = [];
+const providers: AuthConfig["providers"] = [
+  {
+    domain: env.CONVEX_SITE_URL,
+    applicationID: "convex",
+  },
+];
 
 if (env.VANTA_CONVEX_SITE_URL) {
   providers.push({
@@ -10,13 +15,4 @@ if (env.VANTA_CONVEX_SITE_URL) {
   });
 }
 
-if (env.VANTA_DEV_CONVEX_SITE_URL) {
-  providers.push({
-    domain: env.VANTA_DEV_CONVEX_SITE_URL,
-    applicationID: "convex",
-  });
-}
-
-export default {
-  providers,
-} satisfies AuthConfig;
+export default { providers } satisfies AuthConfig;

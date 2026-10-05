@@ -55,10 +55,10 @@ export function Sidebar({ activeTab, setActiveTab, counts, collapsed = false, on
             </div>
             <div className={`${collapsed ? "hidden" : "hidden md:flex"} flex-col`}>
               <span className="font-headline text-lg text-white tracking-tight leading-tight font-bold">
-                Trium
+                Omni
               </span>
               <span className="text-[10px] text-primary uppercase tracking-wider font-bold">
-                Idea Intelligence
+                Venture Intelligence
               </span>
             </div>
           </div>

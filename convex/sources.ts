@@ -1,6 +1,6 @@
 import { query, mutation, internalMutation, internalQuery, env } from "./_generated/server";
 import { v } from "convex/values";
-import { isApprovedVantaIdentity } from "./access";
+import { isAuthorizedOmniIdentity } from "./access";
 
 const sourceCategory = v.union(
   v.literal("Emerging Market"),
@@ -28,7 +28,7 @@ export const listSources = query({
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     let items = await ctx.db.query("sourceRegistry").withIndex("by_name").take(500);
 
     if (args.tier) {
@@ -46,7 +46,7 @@ export const myApprovalRole = query({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) return null;
+    if (!isAuthorizedOmniIdentity(identity)) return null;
     const email = identity.email.toLowerCase();
     return email === env.REVA_ADMIN_EMAIL?.trim().toLowerCase() ? "reva" : null;
   },
@@ -61,7 +61,7 @@ export const approvalSetup = query({
   }),
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    const authorized = isApprovedVantaIdentity(identity);
+    const authorized = isAuthorizedOmniIdentity(identity);
     const revaEmail = env.REVA_ADMIN_EMAIL?.trim().toLowerCase();
     const email = identity?.email?.trim().toLowerCase();
     const role = authorized && revaEmail && email === revaEmail ? "reva" as const : null;
@@ -115,7 +115,7 @@ export const addSource = mutation({
   returns: v.id("sourceRegistry"),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     if (!args.name.trim()) throw new Error("Source name is required.");
     if (!args.url.trim()) throw new Error("Source URL is required.");
     const parsed = new URL(args.url);
@@ -159,7 +159,7 @@ export const importCuratedSources = mutation({
   returns: v.object({ added: v.number(), alreadyPresent: v.number() }),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     if (args.sources.length > 100) throw new Error("Import the source catalog in batches of 100 or fewer.");
     let added = 0;
     let alreadyPresent = 0;
@@ -200,7 +200,7 @@ export const approveSource = mutation({
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity) || !identity?.email) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity) || !identity?.email) throw new Error("A Trium account is required");
     const email = identity.email.toLowerCase();
     const revaAdmin = env.REVA_ADMIN_EMAIL?.trim().toLowerCase();
     if (!revaAdmin || email !== revaAdmin) throw new Error("Only the configured Reva administrator can approve sources");

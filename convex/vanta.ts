@@ -1,6 +1,6 @@
 import { action, env } from "./_generated/server";
 import { v } from "convex/values";
-import { isApprovedVantaIdentity } from "./access";
+import { isAuthorizedOmniIdentity } from "./access";
 
 function calculateSimilarity(str1: string, str2: string): number {
   const words1 = new Set(str1.toLowerCase().replace(/[^a-z0-9 ]/g, "").split(/\s+/).filter((w) => w.length > 3));
@@ -38,7 +38,7 @@ export const checkDuplicates = action({
   }),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     const key = env.VANTA_API_KEY;
     const base = env.VANTA_API_BASE_URL;
     if (!key || !base) throw new Error("Vanta duplicate checking is not configured; no duplicate verdict was produced.");

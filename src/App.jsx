@@ -15,7 +15,7 @@ const EmailAuditLogs = lazy(() => import("./components/EmailAuditLogs").then((mo
 
 import { useRevaData } from "./convexClient";
 
-export function App({ vantaEnvironment = "production", canSwitchVantaEnvironment = false, onSwitchVantaEnvironment }) {
+export function App() {
   const [activeTab, setActiveTab] = useState(() => {
     const saved = localStorage.getItem("reva.nav.active");
     return saved && saved !== "start" ? saved : "dashboard";
@@ -56,13 +56,7 @@ export function App({ vantaEnvironment = "production", canSwitchVantaEnvironment
   }
 
   if (!isAuthenticated) {
-    return (
-      <Login
-        vantaEnvironment={vantaEnvironment}
-        canSwitchVantaEnvironment={canSwitchVantaEnvironment}
-        onSwitchVantaEnvironment={onSwitchVantaEnvironment}
-      />
-    );
+    return <Login />;
   }
 
   if (!identity || !identity.authorized) {
@@ -71,9 +65,6 @@ export function App({ vantaEnvironment = "production", canSwitchVantaEnvironment
         accessDenied
         accessEmail={identity?.email}
         onSignOut={() => void signOut()}
-        vantaEnvironment={vantaEnvironment}
-        canSwitchVantaEnvironment={canSwitchVantaEnvironment}
-        onSwitchVantaEnvironment={onSwitchVantaEnvironment}
       />
     );
   }

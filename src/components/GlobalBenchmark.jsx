@@ -303,7 +303,7 @@ export function GlobalBenchmark({ benchmarks, benchmarkDraft, benchmarkJobs, sav
   const extractFromText = async (event) => {
     event.preventDefault();
     if (!inputText.trim()) {
-      setError("Please describe the initiative so Reva can prepare your structured brief.");
+      setError("Please describe the initiative so Omni can prepare your structured brief.");
       return;
     }
     setError("");
@@ -366,7 +366,7 @@ export function GlobalBenchmark({ benchmarks, benchmarkDraft, benchmarkJobs, sav
         setSelectedJobId(result);
         await saveBenchmarkDraft?.({ updatedAt: Date.now(), flowType: activeFlow, inputText, brief, step, documentId: documentId || undefined, jobId: result, fileName: fileName || undefined });
         setRunning(true);
-        setInfoMessage("Benchmark queued. You can leave this page; Reva will keep the run and uploaded file reference.");
+        setInfoMessage("Benchmark queued. You can leave this page; Omni will keep the run and uploaded file reference.");
         return;
       }
       throw new Error("Benchmark could not be queued. Check your connection and try again.");
@@ -417,7 +417,7 @@ export function GlobalBenchmark({ benchmarks, benchmarkDraft, benchmarkJobs, sav
           summary: [idea.description, idea.problem, idea.solution].filter(Boolean).join("\n"),
         })),
       });
-      setScreeningNotice(`Reva screened ${result.processed} of ${citedIdeas.length} cited ideas. Passing opportunities are queued to DIT when email is configured.`);
+      setScreeningNotice(`Omni screened ${result.processed} of ${citedIdeas.length} cited ideas. Passing opportunities are queued to DIT when email is configured.`);
       if (result.errors.length) setScreeningError(result.errors.join(" "));
     } catch (err) {
       setScreeningError(err instanceof Error ? err.message : "Could not screen generated ideas.");

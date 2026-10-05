@@ -4,7 +4,7 @@ import { paginationOptsValidator, paginationResultValidator } from "convex/serve
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import { isApprovedVantaIdentity } from "./access";
+import { isAuthorizedOmniIdentity } from "./access";
 import { waitForGeminiSlot } from "./geminiQueue";
 
 const scoutType = v.union(v.literal("emerging_tech"), v.literal("nigeria_policy"));
@@ -140,7 +140,7 @@ export const listRecentRuns = query({
   returns: v.array(runDoc),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     return await ctx.db.query("scoutRuns").withIndex("by_startedAt").order("desc").take(Math.max(1, Math.min(args.limit ?? 20, 50)));
   },
 });
@@ -150,7 +150,7 @@ export const listFindingsPage = query({
   returns: paginationResultValidator(findingDoc),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     let q = ctx.db.query("scoutFindings");
     if (args.typeFilter) {
       return await q.withIndex("by_scoutType_createdAt", q => q.eq("scoutType", args.typeFilter!)).order("desc").paginate(args.paginationOpts);
@@ -165,7 +165,7 @@ export const listRecentFindings = query({
   returns: v.array(findingDoc),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     return await ctx.db.query("scoutFindings").withIndex("by_createdAt").order("desc").take(Math.max(1, Math.min(args.limit ?? 40, 100)));
   },
 });
@@ -174,7 +174,7 @@ export const listRecentArticles = query({
   args: { limit: v.optional(v.number()) }, returns: v.array(articleDoc),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     const sessions = await ctx.db.query("scoutArticleSessions").withIndex("by_processedAt").order("desc").take(Math.max(1, Math.min(args.limit ?? 60, 100)));
     const rows = await Promise.all(sessions.map(async (session) => {
       const article = await ctx.db.get(session.articleId);
@@ -196,7 +196,7 @@ export const listRecentArticlesPage = query({
   returns: paginationResultValidator(articleArchiveDoc),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     const sessions = ctx.db.query("scoutArticleSessions");
     const filteredSessions = args.isArchived === true
       ? sessions.withIndex("by_isArchived_processedAt", (q) => q.eq("isArchived", true))
@@ -235,7 +235,7 @@ export const archiveArticles = mutation({
   returns: v.number(),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     if (!Number.isFinite(args.olderThanDays) || args.olderThanDays < 0) {
       throw new Error("Archive age must be a non-negative number of days.");
     }
@@ -256,7 +256,7 @@ export const recoverStaleRuns = mutation({
   args: { now: v.number() }, returns: v.number(),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     const cutoff = args.now - 10 * 60 * 1000;
     const candidates = await ctx.db.query("scoutRuns").withIndex("by_startedAt", (q) => q.lte("startedAt", cutoff)).order("asc").take(50);
     let recovered = 0;
@@ -274,11 +274,11 @@ export const getOverview = query({
   returns: v.object({
     activeEmergingSources: v.number(), activePolicySources: v.number(), registeredSources: v.number(),
     articlesLastDay: v.number(), ideasLastDay: v.number(), geminiConfigured: v.boolean(), totalFindingsAllTime: v.number(), totalArticlesAllTime: v.number(),
-    vantaReadApiConfigured: v.boolean(), resendConfigured: v.boolean(),
+    firecrawlConfigured: v.boolean(), vantaReadApiConfigured: v.boolean(), resendConfigured: v.boolean(),
   }),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     const [sources, recentArticles, recentIdeas]: [Doc<"sourceRegistry">[], Doc<"scrapedItems">[], Doc<"scoutFindings">[]] = await Promise.all([
       ctx.db.query("sourceRegistry").withIndex("by_name").take(500),
       ctx.db.query("scrapedItems").withIndex("by_processedAt", (q) => q.gte("processedAt", args.now - 24 * 60 * 60 * 1000)).take(1000),
@@ -295,6 +295,7 @@ export const getOverview = query({
         articlesLastDay: recentArticles.length,
       ideasLastDay: recentIdeas.length,
       geminiConfigured: Boolean(env.GEMINI_API_KEY),
+      firecrawlConfigured: Boolean(env.FIRECRAWL_API_KEY),
       vantaReadApiConfigured: Boolean(env.VANTA_API_KEY && env.VANTA_API_BASE_URL),
       resendConfigured: Boolean(env.RESEND_API_KEY && env.RESEND_FROM_EMAIL),
     };
@@ -306,7 +307,7 @@ export const runNow = action({
   returns: v.object({ runId: v.id("scoutRuns"), status: runStatus, articlesFound: v.number(), newArticles: v.number(), ideasFound: v.number(), message: v.string() }),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     return await executeScout(ctx, args.scoutType, "manual");
   },
 });
@@ -316,7 +317,7 @@ export const analyzeArticle = action({
   returns: v.object({ summary: v.string(), potentialIdea: v.string(), sector: v.string(), industry: v.string() }),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     const article: Doc<"scrapedItems"> | null = await ctx.runQuery(internal.scouting.getArticleById, { id: args.id });
     if (!article) throw new Error("Article was not found");
     let articleContent = article.content?.trim() || "";
@@ -667,7 +668,7 @@ async function scrapeSource(source: Doc<"sourceRegistry">, type: ScoutType): Pro
   })));
 }
 
-/** Free, keyless Firecrawl fallback for JS-rendered or blocked source pages. */
+/** Firecrawl fallback for JS-rendered or blocked source pages. */
 async function scrapeWithFirecrawl(source: Doc<"sourceRegistry">, type: ScoutType): Promise<ScoutArticle[]> {
   const page = await firecrawlPage(source.url, true);
   const origin = new URL(source.url).origin;
@@ -677,7 +678,7 @@ async function scrapeWithFirecrawl(source: Doc<"sourceRegistry">, type: ScoutTyp
         const url = new URL(link);
         return url.protocol === "https:" && url.origin === origin && /\/(news|article|blog|insight|post|policy|regulat|publication|press|innovation|startup|venture)/i.test(url.pathname);
       } catch { return false; }
-    }).slice(0, 6);
+    }).slice(0, 3);
   const pages = candidates.length
     ? await Promise.all(candidates.map(async (url) => {
       try { return { url, ...(await firecrawlPage(url, false)) }; } catch { return null; }
@@ -694,9 +695,11 @@ async function scrapeWithFirecrawl(source: Doc<"sourceRegistry">, type: ScoutTyp
 }
 
 async function firecrawlPage(url: string, includeLinks: boolean): Promise<{ title: string; markdown: string; links: string[] }> {
+  const apiKey = env.FIRECRAWL_API_KEY;
+  if (!apiKey) throw new Error("Firecrawl is not configured. Set FIRECRAWL_API_KEY on this Convex deployment.");
   const response = await fetch("https://api.firecrawl.dev/v2/scrape", {
     method: "POST",
-    headers: { "content-type": "application/json", accept: "application/json" },
+    headers: { "content-type": "application/json", accept: "application/json", authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({ url, formats: includeLinks ? ["markdown", "links"] : ["markdown"], onlyMainContent: true }),
     signal: AbortSignal.timeout(60000),
   });

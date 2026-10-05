@@ -366,7 +366,7 @@ export function SourceRegistry() {
                 <th className="p-2.5">Category</th>
                 <th className="p-2.5">Sector / Industry</th>
                 <th className="p-2.5">Date Added</th>
-                <th className="p-2.5 text-center">Reva Admin</th>
+                <th className="p-2.5 text-center">Omni Admin</th>
                 <th className="p-2.5 text-center">Approval</th>
                 <th className="p-2.5 text-center">Rotation Status</th>
               </tr>
@@ -414,17 +414,17 @@ export function SourceRegistry() {
                           type="button"
                           onClick={() => toggleSignOff(src._id, src.isActive)}
                           className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-all ${
-                            src.signOffRevaAdmin
+                            src.signOffOmniAdmin
                               ? "bg-emerald-500/10 text-emerald-800 border-emerald-500/20"
                               : "bg-surface-low text-secondary border-amber-900/10"
                           }`}
                         >
-                          {src.signOffRevaAdmin ? "Approved" : "Sign Off"}
+                          {src.signOffOmniAdmin ? "Approved" : "Sign Off"}
                         </button>
                       </td>
 
                       <td className="p-2.5 text-center">
-                        <span className="text-[10px] text-secondary">{src.signOffRevaAdmin ? "Approved by Reva" : "Awaiting Reva"}</span>
+                        <span className="text-[10px] text-secondary">{src.signOffOmniAdmin ? "Approved by Omni" : "Awaiting Omni"}</span>
                       </td>
 
                       <td className="p-2.5 text-center">

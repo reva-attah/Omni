@@ -1,14 +1,14 @@
 import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
-import { isApprovedVantaIdentity } from "./access";
+import { isAuthorizedOmniIdentity } from "./access";
 
 export const generateUploadUrl = mutation({
   args: {},
   returns: v.string(),
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -22,7 +22,7 @@ export const recordUpload = mutation({
   returns: v.id("uploadedDocuments"),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     const metadata = await ctx.db.system.get("_storage", args.storageId);
     if (!metadata) throw new Error("Uploaded file was not found");
     if (metadata.size > 10 * 1024 * 1024) throw new Error("Files must be 10 MB or smaller");
@@ -45,7 +45,7 @@ export const getDocumentUrl = query({
   returns: v.union(v.null(), v.object({ url: v.string(), name: v.string() })),
   handler: async (ctx, { id }) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!isApprovedVantaIdentity(identity)) throw new Error("An approved Trium Vanta account is required");
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
     const doc = await ctx.db.get(id);
     if (!doc || doc.ownerId !== identity.subject) return null;
     const url = await ctx.storage.getUrl(doc.storageId);
