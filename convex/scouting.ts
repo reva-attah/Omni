@@ -160,6 +160,30 @@ export const listFindingsPage = query({
   }
 });
 
+export const getTabCounts = query({
+  args: {},
+  returns: v.object({ emerging: v.number(), policy: v.number(), screened: v.number() }),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
+    const [emerging, policy, ownedInitiatives, scoutInitiatives] = await Promise.all([
+      ctx.db.query("scoutFindings")
+        .withIndex("by_scoutType_createdAt", (q) => q.eq("scoutType", "emerging_tech"))
+        .collect(),
+      ctx.db.query("scoutFindings")
+        .withIndex("by_scoutType_createdAt", (q) => q.eq("scoutType", "nigeria_policy"))
+        .collect(),
+      ctx.db.query("initiatives")
+        .withIndex("by_owner_createdAt", (q) => q.eq("ownerId", identity.subject))
+        .collect(),
+      ctx.db.query("initiatives")
+        .withIndex("by_owner_createdAt", (q) => q.eq("ownerId", "reva-scout"))
+        .collect(),
+    ]);
+    return { emerging: emerging.length, policy: policy.length, screened: ownedInitiatives.length + scoutInitiatives.length };
+  },
+});
+
 export const listRecentFindings = query({
   args: { limit: v.optional(v.number()) },
   returns: v.array(findingDoc),
@@ -590,10 +614,18 @@ async function executeScout(ctx: ActionCtx, type: ScoutType, trigger: RunTrigger
           }));
           ideasFound += await ctx.runMutation(internal.scouting.saveFindings, { runId, scoutType: type, findings: candidates });
           if (candidates.length) {
-            const screened: { processed: number; errors: string[] } = await ctx.runAction(internal.screening.processScoutCandidates, {
-              scoutType: type, candidates,
+            const batchId = await ctx.runMutation(internal.screeningBatches.createScreeningBatch, {
+              ownerId: "reva-scout", scoutType: type, total: candidates.length,
             });
-            errors.push(...screened.errors);
+            // Keep each scheduled action small enough to finish within Convex's
+            // action runtime while respecting the shared Gemini request queue.
+            for (let offset = 0; offset < candidates.length; offset += 4) {
+              await ctx.scheduler.runAfter(
+                Math.floor(offset / 4) * 4 * 60 * 1000,
+                internal.screening.processScoutCandidates,
+                { scoutType: type, candidates: candidates.slice(offset, offset + 4), batchId },
+              );
+            }
           }
         } catch (error) {
           const reason = error instanceof Error ? error.message : "Unknown Gemini error";

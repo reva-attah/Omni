@@ -271,6 +271,19 @@ export default defineSchema({
     .index("by_startedAt", ["startedAt"])
     .index("by_scoutType_startedAt", ["scoutType", "startedAt"]),
 
+  screeningBatches: defineTable({
+    ownerId: v.string(),
+    scoutType: v.union(v.literal("emerging_tech"), v.literal("nigeria_policy"), v.literal("benchmark")),
+    total: v.number(),
+    completed: v.number(),
+    processed: v.number(),
+    failed: v.number(),
+    status: v.union(v.literal("queued"), v.literal("processing"), v.literal("completed")),
+    errors: v.array(v.string()),
+    queuedAt: v.number(),
+    completedAt: v.optional(v.number()),
+  }).index("by_owner_queuedAt", ["ownerId", "queuedAt"]),
+
   scoutFindings: defineTable({
     runId: v.id("scoutRuns"),
     scoutType: v.union(v.literal("emerging_tech"), v.literal("nigeria_policy")),

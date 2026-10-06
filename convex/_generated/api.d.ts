@@ -23,6 +23,7 @@ import type * as http from "../http.js";
 import type * as initiatives from "../initiatives.js";
 import type * as scouting from "../scouting.js";
 import type * as screening from "../screening.js";
+import type * as screeningBatches from "../screeningBatches.js";
 import type * as seed_sources from "../seed_sources.js";
 import type * as sources from "../sources.js";
 import type * as users from "../users.js";
@@ -50,6 +51,7 @@ declare const fullApi: ApiFromModules<{
   initiatives: typeof initiatives;
   scouting: typeof scouting;
   screening: typeof screening;
+  screeningBatches: typeof screeningBatches;
   seed_sources: typeof seed_sources;
   sources: typeof sources;
   users: typeof users;

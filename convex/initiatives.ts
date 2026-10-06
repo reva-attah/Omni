@@ -1,6 +1,26 @@
 import { query, mutation, internalMutation } from "./_generated/server";
+import { paginationOptsValidator, paginationResultValidator } from "convex/server";
 import { v } from "convex/values";
 import { isAuthorizedOmniIdentity } from "./access";
+import schema from "./schema";
+
+export const listInitiativesPage = query({
+  args: {
+    paginationOpts: paginationOptsValidator,
+    ownerKind: v.union(v.literal("mine"), v.literal("scout")),
+  },
+  returns: paginationResultValidator(schema.doc("initiatives")),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!isAuthorizedOmniIdentity(identity)) throw new Error("A Trium account is required");
+    const ownerId = args.ownerKind === "mine" ? identity.subject : "reva-scout";
+    return await ctx.db
+      .query("initiatives")
+      .withIndex("by_owner_createdAt", (q) => q.eq("ownerId", ownerId))
+      .order("desc")
+      .paginate(args.paginationOpts);
+  },
+});
 
 /**
  * List venture initiatives with optional filtering by status, source type, or grade.

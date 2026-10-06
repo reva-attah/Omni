@@ -1,5 +1,5 @@
 import { PageLoader } from "./Loader";
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useAction, useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { normalizeSector, CANONICAL_SECTORS } from "./Dashboard";
@@ -17,7 +17,6 @@ export function ContinuousScout({ onNavigate }) {
   // Filters & Search
   const [sectorFilter, setSectorFilter] = useState("All Sectors");
   const [industryFilter, setIndustryFilter] = useState("All Industries");
-  const [ideasTypeFilter, setIdeasTypeFilter] = useState("all");
   const [timeFilter, setTimeFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [viewingArchived, setViewingArchived] = useState(false);
@@ -34,7 +33,11 @@ export function ContinuousScout({ onNavigate }) {
 
   // Convex Queries & Actions
   const overview = useQuery(api.scouting.getOverview, { now });
+  const tabCounts = useQuery(api.scouting.getTabCounts, {});
+  const screeningBatches = useQuery(api.screeningBatches.listRecentBatches, {});
   const recentRuns = useQuery(api.scouting.listRecentRuns, { limit: 1 }) || [];
+  const observedScreeningBatches = useRef(new Map());
+  const hasObservedScreeningBatch = useRef(false);
   
 
   const latestRun = recentRuns[0];
@@ -45,13 +48,20 @@ export function ContinuousScout({ onNavigate }) {
     : latestRun?.status === "partial"
     ? "Partial"
     : scoutStatus;
-  const { results: recentFindings, status: findingsStatus, loadMore: loadMoreFindings } = usePaginatedQuery(api.scouting.listFindingsPage, { typeFilter: ideasTypeFilter === "all" ? undefined : ideasTypeFilter }, { initialNumItems: 20 });
+  const { results: recentFindings } = usePaginatedQuery(api.scouting.listFindingsPage, {}, { initialNumItems: 20 });
+  const emergingArchive = usePaginatedQuery(api.scouting.listFindingsPage, { typeFilter: "emerging_tech" }, { initialNumItems: 10 });
+  const policyArchive = usePaginatedQuery(api.scouting.listFindingsPage, { typeFilter: "nigeria_policy" }, { initialNumItems: 10 });
   const {
     results: recentArticles,
     status: articleArchiveStatus,
     loadMore: loadMoreArticles,
   } = usePaginatedQuery(api.scouting.listRecentArticlesPage, { isArchived: viewingArchived ? true : false }, { initialNumItems: 10 });
-  const initiatives = useQuery(api.initiatives.listInitiatives, { limit: 50 }) || [];
+  const myInitiativesArchive = usePaginatedQuery(api.initiatives.listInitiativesPage, { ownerKind: "mine" }, { initialNumItems: 25 });
+  const scoutInitiativesArchive = usePaginatedQuery(api.initiatives.listInitiativesPage, { ownerKind: "scout" }, { initialNumItems: 25 });
+  const initiatives = useMemo(
+    () => [...myInitiativesArchive.results, ...scoutInitiativesArchive.results].sort((a, b) => b.createdAt - a.createdAt),
+    [myInitiativesArchive.results, scoutInitiativesArchive.results],
+  );
 
   const runNow = useAction(api.scouting.runNow);
   const archiveArticles = useMutation(api.scouting.archiveArticles);
@@ -87,6 +97,29 @@ export function ContinuousScout({ onNavigate }) {
 
     return () => clearInterval(interval);
   }, [recoverStaleRuns]);
+
+  useEffect(() => {
+    if (screeningBatches === undefined) return;
+    if (!hasObservedScreeningBatch.current) {
+      hasObservedScreeningBatch.current = true;
+      observedScreeningBatches.current = new Map(screeningBatches.map((batch) => [batch._id, batch.status]));
+      return;
+    }
+    const completedMessages = [];
+    for (const batch of screeningBatches) {
+      const previousStatus = observedScreeningBatches.current.get(batch._id);
+      if (batch.status === "completed" && previousStatus !== "completed") {
+        const failedText = batch.failed ? ` ${batch.failed} failed.` : "";
+        const warning = batch.errors[0] ? ` ${batch.errors[0]}` : "";
+        completedMessages.push(`Screening finished: ${batch.processed} of ${batch.total} ideas processed.${failedText}${warning}`);
+      }
+      observedScreeningBatches.current.set(batch._id, batch.status);
+    }
+    if (completedMessages.length) {
+      setNotice(completedMessages.join(" "));
+      setScoutStatus(screeningBatches.some((batch) => batch.status !== "completed") ? "In Progress" : "Scheduled");
+    }
+  }, [screeningBatches]);
 
   // Unified Concurrent Run: Launches both Emerging Tech and Policy scout concurrently
   const handleLaunchFullPatrol = async () => {
@@ -142,9 +175,9 @@ export function ContinuousScout({ onNavigate }) {
       }));
       
       const res = await screenBatch({ scoutType, candidates: mappedCandidates });
-      setNotice(`Screened ${res.processed} of ${candidates.length} opportunities. Check the Screened tab for detailed Omni 7-criteria results.${res.errors.length ? ` ${res.errors[0]}` : ""}`);
+      setNotice(`Queued ${res.queued} opportunities for Nigerian viability screening and, when viable, Vanta duplicate checking and seven-criteria scoring. Results will appear in the Screened tab as each batch finishes.${res.errors.length ? ` ${res.errors[0]}` : ""}`);
       setActiveTab("screened");
-      setScoutStatus(res.errors.length ? "Partial" : "Scheduled");
+      setScoutStatus(res.errors.length ? "Partial" : "In Progress");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to screen batch.");
       setScoutStatus("Failed");
@@ -219,8 +252,7 @@ export function ContinuousScout({ onNavigate }) {
   // Filtered Emerging Tech Findings
   const emergingFindings = useMemo(() => {
     const threshold = timeThresholds[timeFilter] || 0;
-    return recentFindings
-      .filter((f) => f.scoutType === "emerging_tech")
+    return emergingArchive.results
       .filter((item) => {
         const itemTime = item.createdAt || 0;
         if (threshold > 0 && itemTime < threshold) return false;
@@ -232,13 +264,12 @@ export function ContinuousScout({ onNavigate }) {
         }
         return true;
       });
-  }, [recentFindings, timeFilter, sectorFilter, industryFilter, searchQuery]);
+  }, [emergingArchive.results, timeFilter, sectorFilter, industryFilter, searchQuery]);
 
   // Filtered Nigerian Policy & Regulatory Findings
   const policyFindings = useMemo(() => {
     const threshold = timeThresholds[timeFilter] || 0;
-    return recentFindings
-      .filter((f) => f.scoutType === "nigeria_policy")
+    return policyArchive.results
       .filter((item) => {
         const itemTime = item.createdAt || 0;
         if (threshold > 0 && itemTime < threshold) return false;
@@ -250,7 +281,7 @@ export function ContinuousScout({ onNavigate }) {
         }
         return true;
       });
-  }, [recentFindings, timeFilter, sectorFilter, industryFilter, searchQuery]);
+  }, [policyArchive.results, timeFilter, sectorFilter, industryFilter, searchQuery]);
 
   // Filtered Screened Opportunities (7-Criteria)
 
@@ -442,9 +473,9 @@ export function ContinuousScout({ onNavigate }) {
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-900/10 pb-2">
         <div className="flex flex-wrap items-center gap-1.5">
           {[
-            { id: "emerging", label: "Emerging Tech Signals", count: emergingFindings.length, icon: "public" },
-            { id: "policy", label: "Nigerian Policy & Regulatory", count: policyFindings.length, icon: "gavel" },
-            { id: "screened", label: "7-Criteria Screened Ideas", count: screenedOpportunities.length, icon: "verified" },
+            { id: "emerging", label: "Emerging Tech Signals", count: tabCounts?.emerging ?? "…", icon: "public" },
+            { id: "policy", label: "Nigerian Policy & Regulatory", count: tabCounts?.policy ?? "…", icon: "gavel" },
+            { id: "screened", label: "7-Criteria Screened Ideas", count: tabCounts?.screened ?? "…", icon: "verified" },
             { id: "articles", label: "Crawled Articles Archive", count: overview?.totalArticlesAllTime || 0, icon: "article" },
           ].map((tab) => (
             <button
@@ -751,23 +782,28 @@ export function ContinuousScout({ onNavigate }) {
                 )}
 
                 {/* 7-Criteria Score Breakdown Grid */}
-                <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4 text-xs">
+                {item.viabilityRating === "Low" ? (
+                  <div className="rounded-lg bg-amber-500/5 border border-amber-900/10 p-3 text-xs text-secondary">
+                    Nigeria viability was below Medium, so the seven-criteria summary and scoring were skipped.
+                  </div>
+                ) : <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4 text-xs">
                   {item.criteriaScores && typeof item.criteriaScores === "object" ? (
                     Object.entries(item.criteriaScores).map(([k, val]) => (
                       <div key={k} className="p-2.5 rounded-lg bg-surface-low border border-amber-900/10">
                         <div className="flex justify-between font-bold text-[10px] uppercase text-secondary mb-1">
-                          <span className="truncate">{k.replace(/([A-Z])/g, " $1")}</span>
+                          <span className="truncate">{k.split("_").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ")}</span>
                           <span className="text-primary font-headline">{val.score}/{val.maxScore}</span>
                         </div>
-                        <p className="text-[11px] text-on-surface leading-tight line-clamp-2">{val.rationale}</p>
+                        <p className="text-[11px] text-on-surface leading-relaxed whitespace-pre-line">{val.summary || val.rationale}</p>
+                        {val.summary && <p className="mt-2 border-t border-amber-900/10 pt-1.5 text-[10px] text-secondary"><strong>Scoring note:</strong> {val.rationale}</p>}
                       </div>
                     ))
                   ) : (
                     <div className="p-2.5 rounded-lg bg-surface-low col-span-4 text-secondary text-xs">
-                      Evaluated on Strategic Alignment (20), Customer-Problem (20), Solution Fit (15), Market Opportunity (15), Differentiation (10), Sustainable Advantage (10), and Feasibility (10).
+                      Evaluated on Strategic Alignment (20: fit with Trium, Coronation Group, and Access Bank strategies and priorities, including relevant ways to leverage their strengths), Customer-Problem (20), Solution Fit (15), Market Opportunity (15), Differentiation (10), Sustainable Advantage (10), and Feasibility (10).
                     </div>
                   )}
-                </div>
+                </div>}
 
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-amber-900/10 text-xs">
                   <div className="text-secondary text-[11px]">
@@ -943,6 +979,46 @@ export function ContinuousScout({ onNavigate }) {
             className="rounded-md bg-white px-3 py-1.5 font-semibold text-on-surface shadow-xs disabled:opacity-40"
           >
             {articleArchiveStatus === "LoadingMore" ? "Loading..." : "Load next archive batch"}
+          </button>
+        </div>
+      )}
+      {activeTab === "emerging" && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-surface-low/70 px-3 py-2 text-xs">
+          <span className="text-secondary">
+            {emergingArchive.status === "LoadingFirstPage" ? "Loading emerging signals..." : `${emergingArchive.results.length} emerging signals loaded${emergingArchive.status === "Exhausted" ? " · archive complete" : ""}`}
+          </span>
+          <button type="button" disabled={emergingArchive.status !== "CanLoadMore"} onClick={() => emergingArchive.loadMore(10)} className="rounded-md bg-white px-3 py-1.5 font-semibold text-on-surface shadow-xs disabled:opacity-40">
+            {emergingArchive.status === "LoadingMore" ? "Loading..." : "Load next archive batch"}
+          </button>
+        </div>
+      )}
+      {activeTab === "policy" && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-surface-low/70 px-3 py-2 text-xs">
+          <span className="text-secondary">
+            {policyArchive.status === "LoadingFirstPage" ? "Loading Nigerian policy..." : `${policyArchive.results.length} policy items loaded${policyArchive.status === "Exhausted" ? " · archive complete" : ""}`}
+          </span>
+          <button type="button" disabled={policyArchive.status !== "CanLoadMore"} onClick={() => policyArchive.loadMore(10)} className="rounded-md bg-white px-3 py-1.5 font-semibold text-on-surface shadow-xs disabled:opacity-40">
+            {policyArchive.status === "LoadingMore" ? "Loading..." : "Load next archive batch"}
+          </button>
+        </div>
+      )}
+      {activeTab === "screened" && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-surface-low/70 px-3 py-2 text-xs">
+          <span className="text-secondary">
+            {myInitiativesArchive.status === "LoadingFirstPage" || scoutInitiativesArchive.status === "LoadingFirstPage"
+              ? "Loading screened ideas..."
+              : `${initiatives.length} screened ideas loaded${myInitiativesArchive.status === "Exhausted" && scoutInitiativesArchive.status === "Exhausted" ? " · archive complete" : ""}`}
+          </span>
+          <button
+            type="button"
+            disabled={myInitiativesArchive.status !== "CanLoadMore" && scoutInitiativesArchive.status !== "CanLoadMore"}
+            onClick={() => {
+              if (myInitiativesArchive.status === "CanLoadMore") myInitiativesArchive.loadMore(10);
+              if (scoutInitiativesArchive.status === "CanLoadMore") scoutInitiativesArchive.loadMore(10);
+            }}
+            className="rounded-md bg-white px-3 py-1.5 font-semibold text-on-surface shadow-xs disabled:opacity-40"
+          >
+            {myInitiativesArchive.status === "LoadingMore" || scoutInitiativesArchive.status === "LoadingMore" ? "Loading..." : "Load next archive batch"}
           </button>
         </div>
       )}

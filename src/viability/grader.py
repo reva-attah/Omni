@@ -58,7 +58,7 @@ Critical Infrastructure: {infrastructure}
 
 DRAFT SUBMISSION RESPONSES:
 Draft realistic, non-hyped responses for these 7 dimensions:
-1. strategic_alignment: Adherence to Trium ideation themes, venture studio synergies, unfair advantages.
+1. strategic_alignment: Fit with the strategies and stated priorities of Trium, Coronation Group, and Access Bank; identify practical ways to leverage each organization's relevant capabilities, assets, customer reach, channels, data, partnerships, or networks. Assess each organization separately and flag where evidence is missing; do not assume access to resources or partnerships.
 2. customer_problem: Acute Nigerian pain point, validated demand, willingness to pay.
 3. solution_fit: Operational mechanics, addressable market size (TAM/SAM in Nigeria).
 4. market_opportunity: Competitive dynamics, white space, total economic impact.
